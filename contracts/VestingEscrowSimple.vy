@@ -119,10 +119,11 @@ def lockedOf() -> uint256:
 
 
 @external
-def claim(amount: uint256 = MAX_UINT256):
+def claim(amount: uint256 = MAX_UINT256, recipient: address = msg.sender):
     """
     @notice Claim tokens which have vested
     @param amount Amount of tokens to claim
+    @param recipient Address to transfer claimed tokens to
     """
     assert msg.sender == self.recipient  # dev: not recipient
 
@@ -131,9 +132,9 @@ def claim(amount: uint256 = MAX_UINT256):
         t = block.timestamp
     claimable: uint256 = min(self._total_vested_at(t) - self.total_claimed, amount)
     self.total_claimed += claimable
-    assert ERC20(self.token).transfer(msg.sender, claimable)
-
-    log Claim(msg.sender, claimable)
+    
+    assert ERC20(self.token).transfer(recipient, claimable)
+    log Claim(recipient, claimable)
 
 
 @external
