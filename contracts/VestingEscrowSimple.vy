@@ -31,8 +31,6 @@ start_time: public(uint256)
 end_time: public(uint256)
 initial_locked: public(uint256)
 total_claimed: public(uint256)
-
-can_disable: public(bool)
 disabled_at: public(uint256)
 
 admin: public(address)
@@ -52,8 +50,7 @@ def initialize(
     _recipient: address,
     _amount: uint256,
     _start_time: uint256,
-    _end_time: uint256,
-    _can_disable: bool
+    _end_time: uint256
 ) -> bool:
     """
     @notice Initialize the contract.
@@ -66,7 +63,6 @@ def initialize(
     @param _amount Amount of tokens being vested for `_recipient`
     @param _start_time Epoch time at which token distribution starts
     @param _end_time Time until everything should be vested
-    @param _can_disable Can admin disable recipient's ability to claim tokens?
     """
     assert self.admin == ZERO_ADDRESS  # dev: can only initialize once
 
@@ -74,7 +70,6 @@ def initialize(
     self.admin = _admin
     self.start_time = _start_time
     self.end_time = _end_time
-    self.can_disable = _can_disable
 
     assert ERC20(_token).transferFrom(msg.sender, self, _amount)
 
@@ -83,15 +78,6 @@ def initialize(
     log Fund(_recipient, _amount)
 
     return True
-
-
-@external
-def disable_can_disable():
-    """
-    @notice Disable the ability to call `toggle_disable`
-    """
-    assert msg.sender == self.admin  # dev: admin only
-    self.can_disable = False
 
 
 @internal

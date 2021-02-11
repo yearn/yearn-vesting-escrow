@@ -18,8 +18,7 @@ interface VestingEscrowSimple:
         _recipient: address,
         _amount: uint256,
         _start_time: uint256,
-        _end_time: uint256,
-        _can_disable: bool
+        _end_time: uint256
     ) -> bool: nonpayable
 
 
@@ -51,7 +50,6 @@ def deploy_vesting_contract(
     _token: address,
     _recipient: address,
     _amount: uint256,
-    _can_disable: bool,
     _vesting_duration: uint256,
     _vesting_start: uint256 = block.timestamp
 ) -> address:
@@ -63,7 +61,6 @@ def deploy_vesting_contract(
     @param _token Address of the ERC20 token being distributed
     @param _recipient Address to vest tokens for
     @param _amount Amount of tokens being vested for `_recipient`
-    @param _can_disable Can admin disable recipient's ability to claim tokens?
     @param _vesting_duration Time period over which tokens are released
     @param _vesting_start Epoch time when tokens begin to vest
     """
@@ -79,8 +76,7 @@ def deploy_vesting_contract(
         _recipient,
         _amount,
         _vesting_start,
-        _vesting_start + _vesting_duration,
-        _can_disable
+        _vesting_start + _vesting_duration
     )
 
     return _contract
