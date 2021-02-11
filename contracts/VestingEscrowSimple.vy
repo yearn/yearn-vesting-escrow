@@ -26,7 +26,7 @@ event AdminSet:
 
 
 recipient: public(address)
-token: public(address)
+token: public(ERC20)
 start_time: public(uint256)
 end_time: public(uint256)
 initial_locked: public(uint256)
@@ -66,12 +66,12 @@ def initialize(
     """
     assert self.admin == ZERO_ADDRESS  # dev: can only initialize once
 
-    self.token = token
+    self.token = ERC20(token)
     self.admin = admin
     self.start_time = start_time
     self.end_time = end_time
 
-    assert ERC20(token).transferFrom(msg.sender, self, amount)
+    assert self.token.transferFrom(msg.sender, self, amount)  # dev: could not fund escrow
 
     self.recipient = recipient
     self.initial_locked = amount
@@ -133,7 +133,7 @@ def claim(amount: uint256 = MAX_UINT256, recipient: address = msg.sender):
     claimable: uint256 = min(self._total_vested_at(t) - self.total_claimed, amount)
     self.total_claimed += claimable
     
-    assert ERC20(self.token).transfer(recipient, claimable)
+    assert self.token.transfer(recipient, claimable)
     log Claim(recipient, claimable)
 
 
@@ -148,7 +148,7 @@ def rug_pull():
     self.disabled_at = block.timestamp
     ruggable: uint256 = self.initial_locked - self._total_vested_at()
 
-    assert ERC20(self.token).transfer(self.admin, ruggable)
+    assert self.token.transfer(self.admin, ruggable)
     log Rug(self.recipient, ruggable)
 
 
