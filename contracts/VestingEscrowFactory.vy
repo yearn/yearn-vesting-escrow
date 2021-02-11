@@ -100,10 +100,8 @@ def apply_transfer_ownership() -> bool:
     """
     @notice Apply pending ownership transfer
     """
-    assert msg.sender == self.admin  # dev: admin only
-    _admin: address = self.future_admin
-    assert _admin != ZERO_ADDRESS  # dev: admin not set
-    self.admin = _admin
-    log ApplyOwnership(_admin)
+    assert msg.sender == self.future_admin  # dev: future admin only
+    self.admin = msg.sender
+    log ApplyOwnership(msg.sender)
 
     return True
