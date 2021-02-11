@@ -1,9 +1,9 @@
-# @version 0.2.4
+# @version 0.2.8
 """
 @title Simple Vesting Escrow
-@author Curve Finance
+@author Curve Finance, Yearn Finance
 @license MIT
-@notice Vests `ERC20CRV` tokens for a single address
+@notice Vests ERC20 tokens for a single address
 @dev Intended to be deployed many times via `VotingEscrowFactory`
 """
 
@@ -17,9 +17,9 @@ event Claim:
     recipient: indexed(address)
     claimed: uint256
 
-event ToggleDisable:
+event RugPull:
     recipient: address
-    disabled: bool
+    rugged: uint256
 
 event CommitOwnership:
     admin: address
@@ -87,27 +87,6 @@ def initialize(
     log Fund(_recipient, _amount)
 
     return True
-
-
-@external
-def toggle_disable(_recipient: address):
-    """
-    @notice Disable or re-enable a vested address's ability to claim tokens
-    @dev When disabled, the address is only unable to claim tokens which are still
-         locked at the time of this call. It is not possible to block the claim
-         of tokens which have already vested.
-    @param _recipient Address to disable or enable
-    """
-    assert msg.sender == self.admin  # dev: admin only
-    assert self.can_disable, "Cannot disable"
-
-    is_disabled: bool = self.disabled_at[_recipient] == 0
-    if is_disabled:
-        self.disabled_at[_recipient] = block.timestamp
-    else:
-        self.disabled_at[_recipient] = 0
-
-    log ToggleDisable(_recipient, is_disabled)
 
 
 @external
@@ -206,6 +185,24 @@ def claim(addr: address = msg.sender):
     assert ERC20(self.token).transfer(addr, claimable)
 
     log Claim(addr, claimable)
+
+
+@external
+def rug_pull(addr: address):
+    """
+    @notice Disable further flow of tokens and clawback the unvested part to admin
+    @param addr Address to stop vesting for
+    """
+    assert msg.sender == self.admin  # dev: admin only
+    assert self.can_disable  # dev: cannot disable
+    assert self.disabled_at[addr] == 0  # dev: already rugged, have mercy
+
+    self.disabled_at[addr] = block.timestamp
+    claimable: uint256 = self._total_vested_of(addr, block.timestamp) - self.total_claimed[addr]
+    ruggable: uint256 = self.initial_locked[addr] - claimable
+
+    assert ERC20(self.token).transfer(self.admin, ruggable)
+    log RugPull(addr, ruggable)
 
 
 @external
