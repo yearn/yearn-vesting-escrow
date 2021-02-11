@@ -45,50 +45,50 @@ def __init__():
 @external
 @nonreentrant('lock')
 def initialize(
-    _admin: address,
-    _token: address,
-    _recipient: address,
-    _amount: uint256,
-    _start_time: uint256,
-    _end_time: uint256
+    admin: address,
+    token: address,
+    recipient: address,
+    amount: uint256,
+    start_time: uint256,
+    end_time: uint256
 ) -> bool:
     """
     @notice Initialize the contract.
     @dev This function is seperate from `__init__` because of the factory pattern
          used in `VestingEscrowFactory.deploy_vesting_contract`. It may be called
          once per deployment.
-    @param _admin Admin address
-    @param _token Address of the ERC20 token being distributed
-    @param _recipient Address to vest tokens for
-    @param _amount Amount of tokens being vested for `_recipient`
-    @param _start_time Epoch time at which token distribution starts
-    @param _end_time Time until everything should be vested
+    @param admin Admin address
+    @param token Address of the ERC20 token being distributed
+    @param recipient Address to vest tokens for
+    @param amount Amount of tokens being vested for `recipient`
+    @param start_time Epoch time at which token distribution starts
+    @param end_time Time until everything should be vested
     """
     assert self.admin == ZERO_ADDRESS  # dev: can only initialize once
 
-    self.token = _token
-    self.admin = _admin
-    self.start_time = _start_time
-    self.end_time = _end_time
+    self.token = token
+    self.admin = admin
+    self.start_time = start_time
+    self.end_time = end_time
 
-    assert ERC20(_token).transferFrom(msg.sender, self, _amount)
+    assert ERC20(token).transferFrom(msg.sender, self, amount)
 
-    self.recipient = _recipient
-    self.initial_locked = _amount
-    log Fund(_recipient, _amount)
+    self.recipient = recipient
+    self.initial_locked = amount
+    log Fund(recipient, amount)
 
     return True
 
 
 @internal
 @view
-def _total_vested_at(_time: uint256 = block.timestamp) -> uint256:
+def _total_vested_at(time: uint256 = block.timestamp) -> uint256:
     start: uint256 = self.start_time
     end: uint256 = self.end_time
     locked: uint256 = self.initial_locked
-    if _time < start:
+    if time < start:
         return 0
-    return min(locked * (_time - start) / (end - start), locked)
+    return min(locked * (time - start) / (end - start), locked)
 
 
 @external
@@ -153,11 +153,11 @@ def rug_pull():
 
 
 @external
-def set_admin(addr: address):
+def set_admin(admin: address):
     """
     @notice Transfer admin controls to another address
-    @param addr Address to have ownership transferred to
+    @param admin Address to have ownership transferred to
     """
     assert msg.sender == self.admin  # dev: admin only
-    self.admin = addr
-    log AdminSet(addr)
+    self.admin = admin
+    log AdminSet(admin)

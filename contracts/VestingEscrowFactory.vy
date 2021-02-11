@@ -13,12 +13,12 @@ MIN_VESTING_DURATION: constant(uint256) = 86400 * 365
 
 interface VestingEscrowSimple:
     def initialize(
-        _admin: address,
-        _token: address,
-        _recipient: address,
-        _amount: uint256,
-        _start_time: uint256,
-        _end_time: uint256
+        admin: address,
+        token: address,
+        recipient: address,
+        amount: uint256,
+        start_time: uint256,
+        end_time: uint256
     ) -> bool: nonpayable
 
 
@@ -34,52 +34,53 @@ future_admin: public(address)
 target: public(address)
 
 @external
-def __init__(_target: address, _admin: address):
+def __init__(target: address, admin: address):
     """
     @notice Contract constructor
     @dev Prior to deployment you must deploy one copy of `VestingEscrowSimple` which
          is used as a library for vesting contracts deployed by this factory
-    @param _target `VestingEscrowSimple` contract address
+    @param target `VestingEscrowSimple` contract address
+    @param admin Account which funds and deploys new vesting contracts
     """
-    self.target = _target
-    self.admin = _admin
+    self.target = target
+    self.admin = admin
 
 
 @external
 def deploy_vesting_contract(
-    _token: address,
-    _recipient: address,
-    _amount: uint256,
-    _vesting_duration: uint256,
-    _vesting_start: uint256 = block.timestamp
+    token: address,
+    recipient: address,
+    amount: uint256,
+    vesting_duration: uint256,
+    vesting_start: uint256 = block.timestamp
 ) -> address:
     """
     @notice Deploy a new vesting contract
     @dev Each contract holds tokens which vest for a single account. Tokens
          must be sent to this contract via the regular `ERC20.transfer` method
          prior to calling this method.
-    @param _token Address of the ERC20 token being distributed
-    @param _recipient Address to vest tokens for
-    @param _amount Amount of tokens being vested for `_recipient`
-    @param _vesting_duration Time period over which tokens are released
-    @param _vesting_start Epoch time when tokens begin to vest
+    @param token Address of the ERC20 token being distributed
+    @param recipient Address to vest tokens for
+    @param amount Amount of tokens being vested for `recipient`
+    @param vesting_duration Time period over which tokens are released
+    @param vesting_start Epoch time when tokens begin to vest
     """
     assert msg.sender == self.admin  # dev: admin only
-    assert _vesting_start >= block.timestamp  # dev: start time too soon
-    assert _vesting_duration >= MIN_VESTING_DURATION  # dev: duration too short
+    assert vesting_start >= block.timestamp  # dev: start time too soon
+    assert vesting_duration >= MIN_VESTING_DURATION  # dev: duration too short
 
-    _contract: address = create_forwarder_to(self.target)
-    assert ERC20(_token).approve(_contract, _amount)  # dev: approve failed
-    VestingEscrowSimple(_contract).initialize(
+    escrow: address = create_forwarder_to(self.target)
+    assert ERC20(token).approve(escrow, amount)  # dev: approve failed
+    VestingEscrowSimple(escrow).initialize(
         self.admin,
-        _token,
-        _recipient,
-        _amount,
-        _vesting_start,
-        _vesting_start + _vesting_duration
+        token,
+        recipient,
+        amount,
+        vesting_start,
+        vesting_start + vesting_duration
     )
 
-    return _contract
+    return escrow
 
 
 @external
