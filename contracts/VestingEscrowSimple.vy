@@ -153,11 +153,20 @@ def rug_pull():
 
 
 @external
-def set_admin(admin: address):
+def set_admin(future_admin: address):
     """
-    @notice Transfer admin controls to another address
-    @param admin Address to have ownership transferred to
+    @notice Starts transfer of admin control to another address
+    @param future_admin Address to have ownership transferred to
     """
     assert msg.sender == self.admin  # dev: admin only
-    self.admin = admin
+    self.future_admin = future_admin
+
+
+@external
+def accept_admin():
+    """
+    @notice Completes transfer of admin control to another address
+    """
+    assert msg.sender == self.future_admin  # dev: admin only
+    self.admin = msg.sender
     log AdminSet(admin)
