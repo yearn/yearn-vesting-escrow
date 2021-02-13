@@ -18,7 +18,8 @@ interface VestingEscrowSimple:
         recipient: address,
         amount: uint256,
         start_time: uint256,
-        end_time: uint256
+        end_time: uint256,
+        cliff_length: uint256,
     ) -> bool: nonpayable
 
 
@@ -52,7 +53,8 @@ def deploy_vesting_contract(
     recipient: address,
     amount: uint256,
     vesting_duration: uint256,
-    vesting_start: uint256 = block.timestamp
+    vesting_start: uint256 = block.timestamp,
+    cliff_length: uint256 = 0,
 ) -> address:
     """
     @notice Deploy a new vesting contract
@@ -68,6 +70,7 @@ def deploy_vesting_contract(
     assert msg.sender == self.admin  # dev: admin only
     assert vesting_start >= block.timestamp  # dev: start time too soon
     assert vesting_duration >= MIN_VESTING_DURATION  # dev: duration too short
+    assert cliff_length <= vesting_duration  # dev: incorrect vesting cliff
 
     escrow: address = create_forwarder_to(self.target)
     assert ERC20(token).approve(escrow, amount)  # dev: approve failed
@@ -77,7 +80,8 @@ def deploy_vesting_contract(
         recipient,
         amount,
         vesting_start,
-        vesting_start + vesting_duration
+        vesting_start + vesting_duration,
+        cliff_length,
     )
 
     return escrow

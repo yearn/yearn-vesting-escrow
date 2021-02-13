@@ -34,6 +34,7 @@ recipient: public(address)
 token: public(ERC20)
 start_time: public(uint256)
 end_time: public(uint256)
+cliff_length: public(uint256)
 total_locked: public(uint256)
 total_claimed: public(uint256)
 disabled_at: public(uint256)
@@ -59,7 +60,8 @@ def initialize(
     recipient: address,
     amount: uint256,
     start_time: uint256,
-    end_time: uint256
+    end_time: uint256,
+    cliff_length: uint256,
 ) -> bool:
     """
     @notice Initialize the contract.
@@ -79,6 +81,7 @@ def initialize(
     self.admin = admin
     self.start_time = start_time
     self.end_time = end_time
+    self.cliff_length = cliff_length
 
     assert self.token.transferFrom(msg.sender, self, amount)  # dev: could not fund escrow
 
@@ -96,7 +99,7 @@ def _total_vested_at(time: uint256 = block.timestamp) -> uint256:
     start: uint256 = self.start_time
     end: uint256 = self.end_time
     locked: uint256 = self.total_locked
-    if time < start:
+    if time < start + self.cliff_length:
         return 0
     return min(locked * (time - start) / (end - start), locked)
 
@@ -182,7 +185,7 @@ def accept_admin():
     """
     assert msg.sender == self.future_admin  # dev: admin only
     self.admin = msg.sender
-    log AdminSet(admin)
+    log AdminSet(msg.sender)
 
 
 @external
