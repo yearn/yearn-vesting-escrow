@@ -24,6 +24,11 @@ event Rug:
 event AdminSet:
     admin: address
 
+event RecipientTransferInitiated:
+    recipient: address
+
+event RecipientTransferFinalized:
+    recipient: address
 
 recipient: public(address)
 token: public(ERC20)
@@ -35,6 +40,10 @@ disabled_at: public(uint256)
 
 admin: public(address)
 future_admin: public(address)
+
+pending_recipient: public(address)
+recipient_transfer_started: public(uint256)
+ONE_WEEK: constant(uint256) = 604_800  # 1 week (in seconds)
 
 @external
 def __init__():
@@ -132,7 +141,7 @@ def claim(amount: uint256 = MAX_UINT256, recipient: address = msg.sender):
         t = block.timestamp
     claimable: uint256 = min(self._total_vested_at(t) - self.total_claimed, amount)
     self.total_claimed += claimable
-    
+
     assert self.token.transfer(recipient, claimable)
     log Claim(recipient, claimable)
 
@@ -170,3 +179,26 @@ def accept_admin():
     assert msg.sender == self.future_admin  # dev: admin only
     self.admin = msg.sender
     log AdminSet(admin)
+
+
+@external
+def set_recipient(recipient: address):
+    """
+    @notice Start transfer of escrow benefits to another address
+    @param recipient Address to have escrow benefits transferred to
+    """
+    assert msg.sender == self.admin  # dev: admin only
+    self.pending_recipient = recipient
+    self.recipient_transfer_started = block.timestamp
+    log RecipientTransferInitiated(recipient)
+
+
+@external
+def accept_recipient():
+    """
+    @notice Complete transfer of escrow benefits to another address
+    """
+    assert block.timestamp >= self.recipient_transfer_started  + ONE_WEEK  # dev: action not ready
+    assert msg.sender == self.pending_recipient  # dev: recipient only
+    self.recipient = msg.sender
+    log RecipientTransferFinalized(msg.sender)
