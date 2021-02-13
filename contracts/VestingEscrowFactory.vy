@@ -68,7 +68,6 @@ def deploy_vesting_contract(
     @param vesting_start Epoch time when tokens begin to vest
     """
     assert msg.sender == self.admin  # dev: admin only
-    assert vesting_start >= block.timestamp  # dev: start time too soon
     assert vesting_duration >= MIN_VESTING_DURATION  # dev: duration too short
     assert cliff_length <= vesting_duration  # dev: incorrect vesting cliff
 
