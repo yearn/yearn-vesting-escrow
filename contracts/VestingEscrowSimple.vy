@@ -34,7 +34,7 @@ recipient: public(address)
 token: public(ERC20)
 start_time: public(uint256)
 end_time: public(uint256)
-initial_locked: public(uint256)
+total_locked: public(uint256)
 total_claimed: public(uint256)
 disabled_at: public(uint256)
 
@@ -83,7 +83,8 @@ def initialize(
     assert self.token.transferFrom(msg.sender, self, amount)  # dev: could not fund escrow
 
     self.recipient = recipient
-    self.initial_locked = amount
+    self.disabled_at = end_time  # Set to maximum time
+    self.total_locked = amount
     log Fund(recipient, amount)
 
     return True
@@ -94,37 +95,42 @@ def initialize(
 def _total_vested_at(time: uint256 = block.timestamp) -> uint256:
     start: uint256 = self.start_time
     end: uint256 = self.end_time
-    locked: uint256 = self.initial_locked
+    locked: uint256 = self.total_locked
     if time < start:
         return 0
     return min(locked * (time - start) / (end - start), locked)
 
 
-@external
+@internal
 @view
-def vestedOf() -> uint256:
-    """
-    @notice Get the number of tokens which have vested for a given address
-    """
-    return self._total_vested_at()
+def _unclaimed(time: uint256 = block.timestamp) -> uint256:
+    return self._total_vested_at(time) - self.total_claimed
 
 
 @external
 @view
-def balanceOf() -> uint256:
+def unclaimed() -> uint256:
     """
-    @notice Get the number of unclaimed, vested tokens for a given address
+    @notice Get the number of unclaimed, vested tokens for recipient
     """
-    return self._total_vested_at() - self.total_claimed
+    # NOTE: if `rug_pull` is activated, limit by the activation timestamp
+    return self._unclaimed(min(block.timestamp, self.disabled_at))
+
+
+@internal
+@view
+def _locked(time: uint256 = block.timestamp) -> uint256:
+    return self.total_locked - self._total_vested_at(time)
 
 
 @external
 @view
-def lockedOf() -> uint256:
+def locked() -> uint256:
     """
-    @notice Get the number of locked tokens for a given address
+    @notice Get the number of locked tokens for recipient
     """
-    return self.initial_locked - self._total_vested_at()
+    # NOTE: if `rug_pull` is activated, limit by the activation timestamp
+    return self._locked(min(block.timestamp, self.disabled_at))
 
 
 @external
@@ -136,10 +142,8 @@ def claim(amount: uint256 = MAX_UINT256, recipient: address = msg.sender):
     """
     assert msg.sender == self.recipient  # dev: not recipient
 
-    t: uint256 = self.disabled_at
-    if t == 0:
-        t = block.timestamp
-    claimable: uint256 = min(self._total_vested_at(t) - self.total_claimed, amount)
+    claim_period_end: uint256 = min(block.timestamp, self.disabled_at)
+    claimable: uint256 = min(self._unclaimed(claim_period_end), amount)
     self.total_claimed += claimable
 
     assert self.token.transfer(recipient, claimable)
@@ -152,10 +156,10 @@ def rug_pull():
     @notice Disable further flow of tokens and clawback the unvested part to admin
     """
     assert msg.sender == self.admin  # dev: admin only
-    assert self.disabled_at == 0  # dev: already rugged, have mercy
+    # NOTE: Rugging more than once is futile
 
     self.disabled_at = block.timestamp
-    ruggable: uint256 = self.initial_locked - self._total_vested_at()
+    ruggable: uint256 = self._locked()
 
     assert self.token.transfer(self.admin, ruggable)
     log Rug(self.recipient, ruggable)
