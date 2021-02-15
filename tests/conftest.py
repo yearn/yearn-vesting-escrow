@@ -41,7 +41,7 @@ def start_time(chain):
 
 @pytest.fixture(scope="module")
 def end_time(start_time):
-    yield start_time + 100000000
+    yield int(start_time + 3 * YEAR)
 
 
 @pytest.fixture(scope="module")
