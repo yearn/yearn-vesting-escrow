@@ -8,8 +8,6 @@
 
 from vyper.interfaces import ERC20
 
-MIN_VESTING_DURATION: constant(uint256) = 86400 * 365
-
 
 interface VestingEscrowSimple:
     def initialize(
@@ -68,7 +66,6 @@ def deploy_vesting_contract(
     @param vesting_start Epoch time when tokens begin to vest
     """
     assert msg.sender == self.admin  # dev: admin only
-    assert vesting_duration >= MIN_VESTING_DURATION  # dev: duration too short
     assert cliff_length <= vesting_duration  # dev: incorrect vesting cliff
 
     escrow: address = create_forwarder_to(self.target)
