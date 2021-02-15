@@ -11,14 +11,14 @@ def test_claim_full(vesting, token, accounts, chain, end_time):
 
 def test_claim_less(vesting, token, accounts, chain, end_time):
     chain.sleep(end_time - chain.time())
-    vesting.claim(vesting.total_locked() / 10, {"from": accounts[1]})
+    vesting.claim(accounts[1], vesting.total_locked() / 10, {"from": accounts[1]})
 
     assert token.balanceOf(accounts[1]) == 10 ** 19
 
 
 def test_claim_beneficiary(vesting, token, accounts, chain, end_time):
     chain.sleep(end_time - chain.time())
-    vesting.claim(2 ** 256 - 1, accounts[2], {"from": accounts[1]})
+    vesting.claim(accounts[2], {"from": accounts[1]})
 
     assert token.balanceOf(accounts[2]) == 10 ** 20
 
