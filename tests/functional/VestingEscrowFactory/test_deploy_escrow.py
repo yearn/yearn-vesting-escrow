@@ -6,7 +6,7 @@ from brownie import ZERO_ADDRESS
 @pytest.fixture(scope="module", autouse=True)
 def initial_funding(token, vesting_factory, accounts):
     token._mint_for_testing(10 ** 21, {"from": accounts[0]})
-    token.transfer(vesting_factory, 10 ** 21, {"from": accounts[0]})
+    token.approve(vesting_factory, 10 ** 21, {"from": accounts[0]})
 
 
 def test_admin_only(accounts, vesting_factory, token):
@@ -17,11 +17,11 @@ def test_admin_only(accounts, vesting_factory, token):
 
 
 def test_approve_fail(accounts, vesting_factory, token):
-    with brownie.reverts("dev: approve failed"):
+    with brownie.reverts("dev: funding failed"):
         vesting_factory.deploy_vesting_contract(
-            ZERO_ADDRESS,
-            accounts[1],
-            10 ** 18,
+            token,
+            accounts[2],
+            10 ** 22,
             86400 * 365,
             {"from": accounts[0]},
         )

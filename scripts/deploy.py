@@ -27,7 +27,7 @@ def main():
 
     total_amount = sum(sum(x["recipients"].values()) for x in VESTING_ESCROWS)
     token._mint_for_testing(total_amount)
-    token.transfer(factory, total_amount)
+    token.approve(factory, total_amount)
     for x in VESTING_ESCROWS:
         for recipient, amount in x["recipients"].items():
             tx = factory.deploy_vesting_contract(

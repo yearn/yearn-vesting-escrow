@@ -56,9 +56,6 @@ def deploy_vesting_contract(
 ) -> address:
     """
     @notice Deploy a new vesting contract
-    @dev Each contract holds tokens which vest for a single account. Tokens
-         must be sent to this contract via the regular `ERC20.transfer` method
-         prior to calling this method.
     @param token Address of the ERC20 token being distributed
     @param recipient Address to vest tokens for
     @param amount Amount of tokens being vested for `recipient`
@@ -69,6 +66,7 @@ def deploy_vesting_contract(
     assert cliff_length <= vesting_duration  # dev: incorrect vesting cliff
 
     escrow: address = create_forwarder_to(self.target)
+    assert ERC20(token).transferFrom(self.admin, self, amount)  # dev: funding failed
     assert ERC20(token).approve(escrow, amount)  # dev: approve failed
     VestingEscrowSimple(escrow).initialize(
         self.admin,
