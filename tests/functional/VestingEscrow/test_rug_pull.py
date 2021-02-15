@@ -34,7 +34,9 @@ def test_rug_pull_before_start_time(vesting, token, accounts, chain, end_time):
     assert token.balanceOf(accounts[0]) == vesting.total_locked()
 
 
-def test_rug_pull_partially_ununclaimed(vesting, token, accounts, chain, start_time, end_time):
+def test_rug_pull_partially_ununclaimed(
+    vesting, token, accounts, chain, start_time, end_time
+):
     chain.sleep(start_time - chain.time() + 31337)
     tx = vesting.rug_pull({"from": accounts[0]})
     chain.sleep(end_time - chain.time())

@@ -33,7 +33,9 @@ def test_claim_before_start(vesting, token, accounts, chain, start_time):
 def test_claim_partial(vesting, token, accounts, chain, start_time, end_time):
     chain.sleep(vesting.start_time() - chain.time() + 31337)
     tx = vesting.claim({"from": accounts[1]})
-    expected_amount = vesting.total_locked() * (tx.timestamp - start_time) // (end_time - start_time)
+    expected_amount = (
+        vesting.total_locked() * (tx.timestamp - start_time) // (end_time - start_time)
+    )
 
     assert token.balanceOf(accounts[1]) == expected_amount
     assert vesting.total_claimed() == expected_amount
