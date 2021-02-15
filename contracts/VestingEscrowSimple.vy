@@ -39,10 +39,6 @@ disabled_at: public(uint256)
 admin: public(address)
 future_admin: public(address)
 
-pending_recipient: public(address)
-recipient_transfer_started: public(uint256)
-ONE_WEEK: constant(uint256) = 604_800  # 1 week (in seconds)
-
 @external
 def __init__():
     # ensure that the original contract cannot be initialized
