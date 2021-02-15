@@ -87,7 +87,7 @@ def deploy_vesting_contract(
 
 
 @external
-def commit_transfer_ownership(addr: address) -> bool:
+def commit_transfer_ownership(addr: address):
     """
     @notice Transfer ownership of GaugeController to `addr`
     @param addr Address to have ownership transferred to
@@ -96,16 +96,13 @@ def commit_transfer_ownership(addr: address) -> bool:
     self.future_admin = addr
     log CommitOwnership(addr)
 
-    return True
-
 
 @external
-def apply_transfer_ownership() -> bool:
+def apply_transfer_ownership():
     """
     @notice Apply pending ownership transfer
     """
     assert msg.sender == self.future_admin  # dev: future admin only
     self.admin = msg.sender
+    self.future_admin = ZERO_ADDRESS
     log ApplyOwnership(msg.sender)
-
-    return True

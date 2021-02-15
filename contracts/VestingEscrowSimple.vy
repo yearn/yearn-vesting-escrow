@@ -17,18 +17,15 @@ event Claim:
     recipient: indexed(address)
     claimed: uint256
 
-event Rug:
+event RugPull:
     recipient: address
     rugged: uint256
 
-event AdminSet:
+event CommitOwnership:
     admin: address
 
-event RecipientTransferInitiated:
-    recipient: address
-
-event RecipientTransferFinalized:
-    recipient: address
+event ApplyOwnership:
+    admin: address
 
 recipient: public(address)
 token: public(ERC20)
@@ -137,11 +134,11 @@ def locked() -> uint256:
 
 
 @external
-def claim(amount: uint256 = MAX_UINT256, recipient: address = msg.sender):
+def claim(amount: uint256 = MAX_UINT256, beneficiary: address = msg.sender):
     """
     @notice Claim tokens which have vested
     @param amount Amount of tokens to claim
-    @param recipient Address to transfer claimed tokens to
+    @param beneficiary Address to transfer claimed tokens to
     """
     assert msg.sender == self.recipient  # dev: not recipient
 
@@ -149,8 +146,8 @@ def claim(amount: uint256 = MAX_UINT256, recipient: address = msg.sender):
     claimable: uint256 = min(self._unclaimed(claim_period_end), amount)
     self.total_claimed += claimable
 
-    assert self.token.transfer(recipient, claimable)
-    log Claim(recipient, claimable)
+    assert self.token.transfer(beneficiary, claimable)
+    log Claim(beneficiary, claimable)
 
 
 @external
@@ -165,47 +162,26 @@ def rug_pull():
     ruggable: uint256 = self._locked()
 
     assert self.token.transfer(self.admin, ruggable)
-    log Rug(self.recipient, ruggable)
+    log RugPull(self.recipient, ruggable)
 
 
 @external
-def set_admin(future_admin: address):
+def commit_transfer_ownership(addr: address):
     """
-    @notice Starts transfer of admin control to another address
-    @param future_admin Address to have ownership transferred to
+    @notice Transfer ownership of GaugeController to `addr`
+    @param addr Address to have ownership transferred to
     """
     assert msg.sender == self.admin  # dev: admin only
-    self.future_admin = future_admin
+    self.future_admin = addr
+    log CommitOwnership(addr)
 
 
 @external
-def accept_admin():
+def apply_transfer_ownership():
     """
-    @notice Completes transfer of admin control to another address
+    @notice Apply pending ownership transfer
     """
-    assert msg.sender == self.future_admin  # dev: admin only
+    assert msg.sender == self.future_admin  # dev: future admin only
     self.admin = msg.sender
-    log AdminSet(msg.sender)
-
-
-@external
-def set_recipient(recipient: address):
-    """
-    @notice Start transfer of escrow benefits to another address
-    @param recipient Address to have escrow benefits transferred to
-    """
-    assert msg.sender == self.admin  # dev: admin only
-    self.pending_recipient = recipient
-    self.recipient_transfer_started = block.timestamp
-    log RecipientTransferInitiated(recipient)
-
-
-@external
-def accept_recipient():
-    """
-    @notice Complete transfer of escrow benefits to another address
-    """
-    assert block.timestamp >= self.recipient_transfer_started  + ONE_WEEK  # dev: action not ready
-    assert msg.sender == self.pending_recipient  # dev: recipient only
-    self.recipient = msg.sender
-    log RecipientTransferFinalized(msg.sender)
+    self.future_admin = ZERO_ADDRESS
+    log ApplyOwnership(msg.sender)
