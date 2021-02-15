@@ -57,7 +57,7 @@ def vesting_factory(VestingEscrowFactory, accounts, vesting_target):
 
 
 @pytest.fixture(scope="module")
-def vesting_simple(VestingEscrowSimple, accounts, vesting_factory, token, start_time):
+def vesting(VestingEscrowSimple, accounts, vesting_factory, token, start_time):
     token._mint_for_testing(10 ** 21, {"from": accounts[0]})
     token.transfer(vesting_factory, 10 ** 21, {"from": accounts[0]})
     tx = vesting_factory.deploy_vesting_contract(
