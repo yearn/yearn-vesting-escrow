@@ -21,28 +21,17 @@ interface VestingEscrowSimple:
     ) -> bool: nonpayable
 
 
-event CommitOwnership:
-    admin: address
-
-event ApplyOwnership:
-    admin: address
-
-
-admin: public(address)
-future_admin: public(address)
 target: public(address)
 
 @external
-def __init__(target: address, admin: address):
+def __init__(target: address):
     """
     @notice Contract constructor
     @dev Prior to deployment you must deploy one copy of `VestingEscrowSimple` which
          is used as a library for vesting contracts deployed by this factory
     @param target `VestingEscrowSimple` contract address
-    @param admin Account which funds and deploys new vesting contracts
     """
     self.target = target
-    self.admin = admin
 
 
 @external
@@ -62,14 +51,12 @@ def deploy_vesting_contract(
     @param vesting_duration Time period over which tokens are released
     @param vesting_start Epoch time when tokens begin to vest
     """
-    assert msg.sender == self.admin  # dev: admin only
     assert cliff_length <= vesting_duration  # dev: incorrect vesting cliff
-
     escrow: address = create_forwarder_to(self.target)
-    assert ERC20(token).transferFrom(self.admin, self, amount)  # dev: funding failed
+    assert ERC20(token).transferFrom(msg.sender, self, amount)  # dev: funding failed
     assert ERC20(token).approve(escrow, amount)  # dev: approve failed
     VestingEscrowSimple(escrow).initialize(
-        self.admin,
+        msg.sender,
         token,
         recipient,
         amount,
@@ -79,25 +66,3 @@ def deploy_vesting_contract(
     )
 
     return escrow
-
-
-@external
-def commit_transfer_ownership(addr: address):
-    """
-    @notice Transfer ownership of GaugeController to `addr`
-    @param addr Address to have ownership transferred to
-    """
-    assert msg.sender == self.admin  # dev: admin only
-    self.future_admin = addr
-    log CommitOwnership(addr)
-
-
-@external
-def apply_transfer_ownership():
-    """
-    @notice Apply pending ownership transfer
-    """
-    assert msg.sender == self.future_admin  # dev: future admin only
-    self.admin = msg.sender
-    self.future_admin = ZERO_ADDRESS
-    log ApplyOwnership(msg.sender)

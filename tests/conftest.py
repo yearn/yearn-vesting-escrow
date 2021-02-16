@@ -52,7 +52,7 @@ def vesting_target(VestingEscrowSimple, accounts):
 @pytest.fixture(scope="module")
 def vesting_factory(VestingEscrowFactory, accounts, vesting_target):
     yield VestingEscrowFactory.deploy(
-        vesting_target, accounts[0], {"from": accounts[0]}
+        vesting_target, {"from": accounts[0]}
     )
 
 

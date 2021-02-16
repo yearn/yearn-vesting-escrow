@@ -9,13 +9,6 @@ def initial_funding(token, vesting_factory, accounts):
     token.approve(vesting_factory, 10 ** 21, {"from": accounts[0]})
 
 
-def test_admin_only(accounts, vesting_factory, token):
-    with brownie.reverts("dev: admin only"):
-        vesting_factory.deploy_vesting_contract(
-            token, accounts[1], 10 ** 18, 86400 * 365, {"from": accounts[1]}
-        )
-
-
 def test_approve_fail(accounts, vesting_factory, token):
     with brownie.reverts("dev: funding failed"):
         vesting_factory.deploy_vesting_contract(
