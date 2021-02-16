@@ -1,4 +1,5 @@
 import brownie
+from brownie import ZERO_ADDRESS
 
 
 def test_commit_admin_only(vesting, accounts):
@@ -28,3 +29,10 @@ def test_apply_transfer_ownership(vesting, accounts):
 def test_apply_without_commit(vesting, accounts):
     with brownie.reverts("dev: future admin only"):
         vesting.apply_transfer_ownership({"from": accounts[0]})
+
+
+def test_renounce_ownership(vesting, accounts):
+    vesting.renounce_ownership({"from": accounts[0]})
+
+    assert vesting.admin() == ZERO_ADDRESS
+    assert vesting.future_admin() == ZERO_ADDRESS

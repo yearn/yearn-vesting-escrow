@@ -165,7 +165,7 @@ def rug_pull():
 @external
 def commit_transfer_ownership(addr: address):
     """
-    @notice Transfer ownership of GaugeController to `addr`
+    @notice Transfer ownership of the contract to `addr`
     @param addr Address to have ownership transferred to
     """
     assert msg.sender == self.admin  # dev: admin only
@@ -182,3 +182,14 @@ def apply_transfer_ownership():
     self.admin = msg.sender
     self.future_admin = ZERO_ADDRESS
     log ApplyOwnership(msg.sender)
+
+
+@external
+def renounce_ownership():
+    """
+    @notice Renounce admin control of the escrow
+    """
+    assert msg.sender == self.admin  # dev: admin only
+    self.future_admin = ZERO_ADDRESS
+    self.admin = ZERO_ADDRESS
+    log ApplyOwnership(ZERO_ADDRESS)
