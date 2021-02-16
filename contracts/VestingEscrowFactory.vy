@@ -21,6 +21,17 @@ interface VestingEscrowSimple:
     ) -> bool: nonpayable
 
 
+event VestingEscrowCreated:
+    funder: indexed(address)
+    token: indexed(address)
+    recipient: indexed(address)
+    escrow: address
+    amount: uint256
+    vesting_start: uint256
+    vesting_duration: uint256
+    cliff_length: uint256
+
+
 target: public(address)
 
 @external
@@ -64,5 +75,5 @@ def deploy_vesting_contract(
         vesting_start + vesting_duration,
         cliff_length,
     )
-
+    log VestingEscrowCreated(msg.sender, token, recipient, escrow, amount, vesting_start, vesting_duration, cliff_length)
     return escrow
