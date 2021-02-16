@@ -5,6 +5,8 @@ A modified version of [Curve Vesting Escrow](https://github.com/curvefi/curve-da
 - The first unlock can be delayed using `cliff_length`.
 - An ability to `claim` partial amounts or use a different beneficiary account.
 - An ability to terminate an escrow and clawback all the unvested tokens using `rug_pull`. The recipient is still entitled to the vested portion.
+- Factory admin controls removed, anyone can deploy escrows, funds are pulled instead of pushed.
+- Factory emits an event which allows finding all the escrows deployed from it.
 
 ## Contracts
 
