@@ -54,3 +54,21 @@ def test_claim_multiple(vesting, token, accounts, chain, start_time, end_time):
         balance = new_balance
 
     assert token.balanceOf(accounts[1]) == 10 ** 20
+
+
+def test_claim_cliff(
+    vesting, token, accounts, chain, start_time, end_time, cliff_duration
+):
+    chain.sleep(start_time - chain.time() + int(cliff_duration / 2))
+    vesting.claim({"from": accounts[1]})
+    assert token.balanceOf(accounts[1]) == 0
+    assert vesting.total_claimed() == 0
+
+    chain.sleep(start_time - chain.time() + cliff_duration)
+    tx = vesting.claim({"from": accounts[1]})
+    expected_amount = (
+        vesting.total_locked() * (tx.timestamp - start_time) // (end_time - start_time)
+    )
+
+    assert token.balanceOf(accounts[1]) == expected_amount
+    assert vesting.total_claimed() == expected_amount
