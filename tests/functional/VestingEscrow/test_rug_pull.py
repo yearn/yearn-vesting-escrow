@@ -35,9 +35,9 @@ def test_rug_pull_before_start_time(vesting, token, accounts, chain, end_time):
 
 
 def test_rug_pull_partially_ununclaimed(
-    vesting, token, accounts, chain, start_time, end_time
+    vesting, token, accounts, chain, start_time, end_time, cliff_duration
 ):
-    chain.sleep(start_time - chain.time() + 31337)
+    chain.sleep(start_time - chain.time() + 2 * cliff_duration)
     tx = vesting.rug_pull({"from": accounts[0]})
     chain.sleep(end_time - chain.time())
     vesting.claim({"from": accounts[1]})
