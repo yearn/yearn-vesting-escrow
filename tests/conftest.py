@@ -10,18 +10,23 @@ def isolation_setup(fn_isolation):
 
 
 @pytest.fixture(scope="session")
-def alice(accounts):
+def admin(accounts):
     yield accounts[0]
 
 
 @pytest.fixture(scope="session")
-def bob(accounts):
+def alice(accounts):
     yield accounts[1]
 
 
 @pytest.fixture(scope="session")
-def charlie(accounts):
+def bob(accounts):
     yield accounts[2]
+
+
+@pytest.fixture(scope="session")
+def charlie(accounts):
+    yield accounts[3]
 
 
 @pytest.fixture(scope="session")
@@ -31,7 +36,7 @@ def receiver(accounts):
 
 @pytest.fixture(scope="module")
 def token(ERC20, accounts):
-    yield ERC20.deploy("Yearn Token", "YFI", 18, {"from": accounts[0]})
+    yield ERC20.deploy("StakeWise", "SWISE", 18, {"from": accounts[0]})
 
 
 @pytest.fixture(scope="module")
@@ -50,9 +55,11 @@ def vesting_target(VestingEscrowSimple, accounts):
 
 
 @pytest.fixture(scope="module")
-def vesting_factory(VestingEscrowFactory, accounts, vesting_target):
+def vesting_factory(VestingEscrowFactory, accounts, vesting_target, admin):
     yield VestingEscrowFactory.deploy(
-        vesting_target, {"from": accounts[0]}
+        vesting_target,
+        admin,
+        {"from": accounts[0]}
     )
 
 

@@ -21,7 +21,7 @@ VESTING_ESCROWS = [
 
 def main():
     admin = accounts[0]
-    token = ERC20.deploy("Yearn Token", "YFI", 18, {"from": admin})
+    token = ERC20.deploy("StakeWise", "SWISE", 18, {"from": admin})
     template = VestingEscrowSimple.deploy({"from": admin})
     factory = VestingEscrowFactory.deploy(template, admin, {"from": admin})
 

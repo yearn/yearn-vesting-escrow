@@ -1,12 +1,11 @@
 import brownie
 import pytest
-from brownie import ZERO_ADDRESS
 
 
 @pytest.fixture(scope="module", autouse=True)
-def initial_funding(token, vesting_factory, accounts):
-    token._mint_for_testing(10 ** 21, {"from": accounts[0]})
-    token.approve(vesting_factory, 10 ** 21, {"from": accounts[0]})
+def initial_funding(token, vesting_factory, admin):
+    token._mint_for_testing(10 ** 21, {"from": admin})
+    token.approve(vesting_factory, 10 ** 21, {"from": admin})
 
 
 def test_approve_fail(accounts, vesting_factory, token):
@@ -24,13 +23,40 @@ def test_target_is_set(vesting_factory, vesting_target):
     assert vesting_factory.target() == vesting_target
 
 
-def test_deploys(accounts, vesting_factory, token):
+def test_admin_is_set(vesting_factory, admin):
+    assert vesting_factory.admin() == admin
+
+
+def test_balance_of(accounts, vesting_factory):
+    assert vesting_factory.balanceOf(accounts[1]) == 0
+
+
+def test_not_admin_fails_to_deploy(accounts, vesting_factory, alice, token):
+    with brownie.reverts():
+        vesting_factory.deploy_vesting_contract(
+            token, accounts[1], 10 ** 18, 86400 * 365, {"from": alice}
+        )
+
+
+def test_deploys(accounts, vesting_factory, admin, token, chain):
+    # deploy escrow 1
     tx = vesting_factory.deploy_vesting_contract(
-        token, accounts[1], 10 ** 18, 86400 * 365, {"from": accounts[0]}
+        token, accounts[1], 10 ** 18, 86400 * 365, {"from": admin}
     )
 
     assert len(tx.new_contracts) == 1
     assert tx.return_value == tx.new_contracts[0]
+    chain.mine(timestamp=chain.time() + 86400 * 365)
+
+    # deploy escrow 2
+    tx = vesting_factory.deploy_vesting_contract(
+        token, accounts[1], 10 ** 18, 86400 * 365, {"from": admin}
+    )
+    assert len(tx.new_contracts) == 1
+    assert tx.return_value == tx.new_contracts[0]
+    chain.mine(timestamp=chain.time() + 86400 * 365)
+
+    assert vesting_factory.balanceOf(accounts[1]) == 10 ** 18 * 2
 
 
 def test_start_and_duration(
