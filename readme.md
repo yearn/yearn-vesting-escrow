@@ -24,6 +24,8 @@ factory.deploy_vesting_contract(token, recipient, amount, vesting_duration, vest
 
 ## Ethereum mainnet deployment
 
+⚠️ This version has an [unpatched bug](https://github.com/banteg/yearn-vesting-escrow/security/advisories/GHSA-vpxq-238p-8q3m), do not call `renounce_ownership` on it. Deploy a patched factory if you need this feature and submit a pull request.
+
 - `VestingEscrowFactory`: [0xF124534bfa6Ac7b89483B401B4115Ec0d27cad6A](https://etherscan.io/address/0xF124534bfa6Ac7b89483B401B4115Ec0d27cad6A#code)
 - `VestingEscrowSimple`: [0x9c351CabC5d9e1393678d221F84E6EE3D05c016F](https://etherscan.io/address/0x9c351cabc5d9e1393678d221f84e6ee3d05c016f#code)
 
