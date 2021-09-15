@@ -1,4 +1,4 @@
-# @version 0.2.8
+# @version 0.2.16
 """
 @title Simple Vesting Escrow
 @author Curve Finance, Yearn Finance
@@ -35,6 +35,7 @@ cliff_length: public(uint256)
 total_locked: public(uint256)
 total_claimed: public(uint256)
 disabled_at: public(uint256)
+initialized: public(bool)
 
 admin: public(address)
 future_admin: public(address)
@@ -42,7 +43,7 @@ future_admin: public(address)
 @external
 def __init__():
     # ensure that the original contract cannot be initialized
-    self.admin = msg.sender
+    self.initialized = True
 
 
 @external
@@ -69,7 +70,8 @@ def initialize(
     @param end_time Time until everything should be vested
     @param cliff_length Duration after which the first portion vests
     """
-    assert self.admin == ZERO_ADDRESS  # dev: can only initialize once
+    assert not self.initialized  # dev: can only initialize once
+    self.initialized = True
 
     self.token = ERC20(token)
     self.admin = admin
