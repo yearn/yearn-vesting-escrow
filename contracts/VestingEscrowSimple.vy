@@ -199,5 +199,5 @@ def renounce_ownership():
 @external
 def collect_dust(token: address):
     assert msg.sender == self.recipient  # dev: recipient only
-    assert (token != self.token.address or block.timestamp > self.end_time)
+    assert (token != self.token.address or block.timestamp > self.disabled_at)
     assert ERC20(token).transfer(self.recipient, ERC20(token).balanceOf(self))
