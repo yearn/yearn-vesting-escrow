@@ -26,7 +26,7 @@ def test_do_not_allow_claim_of_vested_token(
 def test_allow_vested_token_dust_to_be_claim_at_end(
     vesting, token, accounts, chain, end_time
 ):
-    chain.sleep(end_time - chain.time())
+    chain.sleep(end_time - chain.time() + 1)
     chain.mine()
     vesting.collect_dust(token, {"from": accounts[1]})
     assert token.balanceOf(accounts[1]) == 10 ** 20
