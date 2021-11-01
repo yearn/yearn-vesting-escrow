@@ -195,3 +195,9 @@ def renounce_ownership():
     self.future_admin = ZERO_ADDRESS
     self.admin = ZERO_ADDRESS
     log ApplyOwnership(ZERO_ADDRESS)
+
+@external
+def collect_dust(token: address):
+    assert msg.sender == self.recipient  # dev: recipient only
+    assert (token != self.token.address or block.timestamp > self.disabled_at)
+    assert ERC20(token).transfer(self.recipient, ERC20(token).balanceOf(self))
