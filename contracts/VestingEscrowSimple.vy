@@ -119,7 +119,7 @@ def unclaimed() -> uint256:
 @internal
 @view
 def _locked(time: uint256 = block.timestamp) -> uint256:
-    return self.total_locked - self._total_vested_at(time)
+    return min(self.token.balanceOf(self) - self._unclaimed(time), self.total_locked - self._total_vested_at(time))
 
 
 @external

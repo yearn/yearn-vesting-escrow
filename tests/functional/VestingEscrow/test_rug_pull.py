@@ -40,6 +40,9 @@ def test_rug_pull_partially_ununclaimed(
     chain.sleep(start_time - chain.time() + 31337)
     tx = vesting.rug_pull({"from": accounts[0]})
     chain.sleep(end_time - chain.time())
+
+    assert token.balanceOf(vesting) == vesting.unclaimed()
+    
     vesting.claim({"from": accounts[1]})
 
     expected_amount = 10 ** 20 * (tx.timestamp - start_time) // (end_time - start_time)
