@@ -33,6 +33,8 @@ event VestingEscrowCreated:
 
 
 target: public(address)
+contracts: public(HashMap[address, address[1000000000]])
+contracts_list_pointer: public(HashMap[address, uint256])
 
 @external
 def __init__(target: address):
@@ -75,5 +77,11 @@ def deploy_vesting_contract(
         vesting_start + vesting_duration,
         cliff_length,
     )
+    self.contracts[msg.sender][self.contracts_list_pointer[msg.sender]] = escrow
+    self.contracts_list_pointer[msg.sender] += 1
+
+    self.contracts[recipient][self.contracts_list_pointer[recipient]] = escrow
+    self.contracts_list_pointer[recipient] += 1
+
     log VestingEscrowCreated(msg.sender, token, recipient, escrow, amount, vesting_start, vesting_duration, cliff_length)
     return escrow
