@@ -33,6 +33,8 @@ event VestingEscrowCreated:
 
 
 target: public(address)
+escrows_length: public(uint256)
+escrows: public(address[1000000000000])
 
 @external
 def __init__(target: address):
@@ -63,6 +65,7 @@ def deploy_vesting_contract(
     @param vesting_start Epoch time when tokens begin to vest
     """
     assert cliff_length <= vesting_duration  # dev: incorrect vesting cliff
+    assert vesting_duration > 0  # dev: duration must be > 0
     escrow: address = create_forwarder_to(self.target)
     assert ERC20(token).transferFrom(msg.sender, self, amount)  # dev: funding failed
     assert ERC20(token).approve(escrow, amount)  # dev: approve failed
@@ -75,5 +78,7 @@ def deploy_vesting_contract(
         vesting_start + vesting_duration,
         cliff_length,
     )
+    self.escrows[self.escrows_length] = escrow
+    self.escrows_length += 1
     log VestingEscrowCreated(msg.sender, token, recipient, escrow, amount, vesting_start, vesting_duration, cliff_length)
     return escrow
