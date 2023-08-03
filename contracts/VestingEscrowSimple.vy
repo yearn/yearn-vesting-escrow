@@ -139,7 +139,8 @@ def claim(beneficiary: address = msg.sender, amount: uint256 = MAX_UINT256):
     @param beneficiary Address to transfer claimed tokens to
     @param amount Amount of tokens to claim
     """
-    assert msg.sender == self.recipient  # dev: not recipient
+    recipient: address = self.recipient
+    assert msg.sender == recipient or recipient == beneficiary # dev: not authorized
 
     claim_period_end: uint256 = min(block.timestamp, self.disabled_at)
     claimable: uint256 = min(self._unclaimed(claim_period_end), amount)
