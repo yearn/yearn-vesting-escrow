@@ -33,6 +33,11 @@ def token():
 
 
 @pytest.fixture(scope="module")
+def another_token():
+    return tokens["DAI"]
+
+
+@pytest.fixture(scope="module")
 def start_time(chain):
     yield chain.pending_timestamp + 1000 + 86400 * 365
 
@@ -60,6 +65,11 @@ def vesting_factory(project, ychad, vesting_target):
 @pytest.fixture(scope="module")
 def amount():
     yield ape.convert("100 YFI", int)
+
+
+@pytest.fixture(scope="module")
+def another_amount():
+    yield ape.convert("10 DAI", int)
 
 
 @pytest.fixture(scope="module")

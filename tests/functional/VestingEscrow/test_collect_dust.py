@@ -3,7 +3,6 @@ import pytest
 from brownie import ZERO_ADDRESS
 
 
-@pytest.fixture
 def token2(ERC20, accounts):
     yield ERC20.deploy("XYZ", "XYZ", 18, {"from": accounts[0]})
 
