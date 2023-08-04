@@ -1,4 +1,4 @@
-# @version 0.2.16
+# @version 0.3.9
 """
 @title Vesting Escrow Factory
 @author Curve Finance, Yearn Finance
