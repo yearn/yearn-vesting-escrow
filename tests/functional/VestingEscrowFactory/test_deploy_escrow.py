@@ -1,22 +1,17 @@
-import brownie
+import ape
 import pytest
-from brownie import ZERO_ADDRESS
+from ape.utils import ZERO_ADDRESS
 
 
-@pytest.fixture(scope="module", autouse=True)
-def initial_funding(token, vesting_factory, accounts):
-    token._mint_for_testing(10 ** 21, {"from": accounts[0]})
-    token.approve(vesting_factory, 10 ** 21, {"from": accounts[0]})
-
-
-def test_approve_fail(accounts, vesting_factory, token):
-    with brownie.reverts("dev: funding failed"):
+def test_approve_fail(vesting_factory, ychad, receiver, token, amount, year):
+    with ape.reverts("ERC20: transfer amount exceeds allowance"):
         vesting_factory.deploy_vesting_contract(
             token,
-            accounts[2],
-            10 ** 22,
-            86400 * 365,
-            {"from": accounts[0]},
+            receiver,
+            amount,
+            year,
+            ychad,
+            sender=ychad
         )
 
 
@@ -24,81 +19,54 @@ def test_target_is_set(vesting_factory, vesting_target):
     assert vesting_factory.target() == vesting_target
 
 
-def test_deploys(accounts, vesting_factory, token):
-    tx = vesting_factory.deploy_vesting_contract(
-        token, accounts[1], 10 ** 18, 86400 * 365, {"from": accounts[0]}
+def test_deploy(vesting_factory, ychad, receiver, token, amount, start_time, year, cliff_duration):
+    token.approve(vesting_factory, amount, sender=ychad)
+    receipt = vesting_factory.deploy_vesting_contract(
+        token, receiver, amount, year, start_time, cliff_duration, sender=ychad
     )
 
-    assert len(tx.new_contracts) == 1
-    assert tx.return_value == tx.new_contracts[0]
+    vesting_escrow_address = receipt.return_value
+    vesting_escrows = vesting_factory.VestingEscrowCreated.from_receipt(receipt)
+
+    assert len(vesting_escrows) == 1
+    assert vesting_escrows[0] == vesting_factory.VestingEscrowCreated(ychad, token, receiver, vesting_escrow_address, amount, start_time, year, cliff_duration)
 
 
-def test_start_and_duration(
-    VestingEscrowSimple, accounts, chain, vesting_factory, token
+def test_init_variables(
+    project, vesting_factory, ychad, receiver, token, amount, start_time, year, cliff_duration
 ):
-    start_time = chain.time() + 100
-
-    tx = vesting_factory.deploy_vesting_contract(
-        token,
-        accounts[1],
-        10 ** 18,
-        86400 * 700,
-        start_time,
-        {"from": accounts[0]},
+    token.approve(vesting_factory, amount, sender=ychad)
+    receipt = vesting_factory.deploy_vesting_contract(
+        token, receiver, amount, year, start_time, cliff_duration, sender=ychad
     )
 
-    assert len(tx.new_contracts) == 1
-    assert tx.return_value == tx.new_contracts[0]
+    vesting_escrow = project.VestingEscrowSimple.at(receipt.return_value)
 
-    escrow = VestingEscrowSimple.at(tx.return_value)
-    assert escrow.start_time() == start_time
-    assert escrow.end_time() == start_time + 86400 * 700
-
-
-def test_token_xfer(vesting, token):
-    # exactly 10**18 tokens should be transferred
-    assert token.balanceOf(vesting) == 10 ** 20
+    assert vesting_escrow.token() == token
+    assert vesting_escrow.admin() == ychad
+    assert vesting_escrow.recipient() == receiver
+    assert vesting_escrow.start_time() == start_time
+    assert vesting_escrow.end_time() == start_time + year
+    assert vesting_escrow.total_locked() == amount
 
 
-def test_token_approval(vesting, vesting_factory, token):
-    # remaining approval should be zero
-    assert token.allowance(vesting, vesting_factory) == 0
-
-
-def test_init_vars(vesting, accounts, token, start_time, end_time):
-    assert vesting.token() == token
-    assert vesting.admin() == accounts[0]
-    assert vesting.recipient() == accounts[1]
-    assert vesting.start_time() == start_time
-    assert vesting.end_time() == end_time
-    assert vesting.total_locked() == 10 ** 20
-
-
-def test_cannot_call_init(vesting, accounts, token, start_time, end_time):
-    with brownie.reverts():
-        vesting.initialize(
-            accounts[0],
-            token,
-            accounts[1],
-            10 ** 20,
-            start_time,
-            end_time,
-            0,
-            {"from": accounts[0]},
-        )
-
-
-def test_cannot_init_factory_target(
-    vesting_target, accounts, token, start_time, end_time
+def test_token_events(
+    vesting_factory, ychad, receiver, token, amount, start_time, year, cliff_duration
 ):
-    with brownie.reverts("dev: can only initialize once"):
-        vesting_target.initialize(
-            accounts[0],
-            token,
-            accounts[1],
-            10 ** 20,
-            start_time,
-            end_time,
-            0,
-            {"from": accounts[0]},
-        )
+    token.approve(vesting_factory, amount, sender=ychad)
+    receipt = vesting_factory.deploy_vesting_contract(
+        token, receiver, amount, year, start_time, cliff_duration, sender=ychad
+    )
+
+    vesting_escrow = receipt.return_value
+    transfers = token.Transfer.from_receipt(receipt)
+    approval = token.Approval.from_receipt(receipt)
+
+    assert len(transfers) == 2
+    assert transfers[0] == token.Transfer(ychad, vesting_factory, amount)
+    assert transfers[1] == token.Transfer(vesting_factory, vesting_escrow, amount)
+
+    assert len(approval) == 3
+    assert approval[0] == token.Approval(ychad, vesting_factory, 0)
+    assert approval[1] == token.Approval(vesting_factory, vesting_escrow, amount)
+    assert approval[2] == token.Approval(vesting_factory, vesting_escrow, 0)

@@ -1,4 +1,4 @@
-# @version 0.3.9
+# @version 0.3.7
 """
 @title Simple Vesting Escrow
 @author Curve Finance, Yearn Finance
@@ -197,8 +197,9 @@ def renounce_ownership():
     self.admin = ZERO_ADDRESS
     log ApplyOwnership(ZERO_ADDRESS)
 
+
 @external
 def collect_dust(token: address):
     assert msg.sender == self.recipient  # dev: recipient only
-    assert (token != self.token.address or block.timestamp > self.disabled_at)
+    assert (token != self.token.address or block.timestamp > self.disabled_at) # dev: can't collect
     assert ERC20(token).transfer(self.recipient, ERC20(token).balanceOf(self))
