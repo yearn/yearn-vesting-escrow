@@ -133,7 +133,7 @@ def locked() -> uint256:
 
 
 @external
-def claim(beneficiary: address = msg.sender, amount: uint256 = MAX_UINT256):
+def claim(beneficiary: address = msg.sender, amount: uint256 = max_value(uint256)):
     """
     @notice Claim tokens which have vested
     @param beneficiary Address to transfer claimed tokens to
@@ -183,7 +183,7 @@ def apply_transfer_ownership():
     """
     assert msg.sender == self.future_admin  # dev: future admin only
     self.admin = msg.sender
-    self.future_admin = ZERO_ADDRESS
+    self.future_admin = empty(address)
     log ApplyOwnership(msg.sender)
 
 
@@ -193,9 +193,9 @@ def renounce_ownership():
     @notice Renounce admin control of the escrow
     """
     assert msg.sender == self.admin  # dev: admin only
-    self.future_admin = ZERO_ADDRESS
-    self.admin = ZERO_ADDRESS
-    log ApplyOwnership(ZERO_ADDRESS)
+    self.future_admin = empty(address)
+    self.admin = empty(address)
+    log ApplyOwnership(empty(address))
 
 
 @external
