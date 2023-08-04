@@ -1,27 +1,20 @@
+import ape
+from ape_tokens import tokens
+from ape.types import AddressType
 import pytest
 
 WEEK = 7 * 24 * 60 * 60  # seconds
-YEAR = 365.25 * 24 * 60 * 60  # seconds
-
-
-@pytest.fixture(autouse=True)
-def isolation_setup(fn_isolation):
-    pass
+YEAR = int(365.25 * 24 * 60 * 60)  # seconds
 
 
 @pytest.fixture(scope="session")
-def alice(accounts):
-    yield accounts[0]
+def ychad(accounts):
+    return accounts[ape.convert("ychad.eth", AddressType)]
 
 
 @pytest.fixture(scope="session")
-def bob(accounts):
-    yield accounts[1]
-
-
-@pytest.fixture(scope="session")
-def charlie(accounts):
-    yield accounts[2]
+def ytrades(accounts):
+    return accounts[ape.convert("ytrades.ychad.eth", AddressType)]
 
 
 @pytest.fixture(scope="session")
@@ -30,13 +23,13 @@ def receiver(accounts):
 
 
 @pytest.fixture(scope="module")
-def token(ERC20, accounts):
-    yield ERC20.deploy("Yearn Token", "YFI", 18, {"from": accounts[0]})
+def token():
+    return tokens["YFI"]
 
 
 @pytest.fixture(scope="module")
 def start_time(chain):
-    yield chain.time() + 1000 + 86400 * 365
+    yield chain.pending_timestamp + 1000 + 86400 * 365
 
 
 @pytest.fixture(scope="module")
@@ -50,26 +43,27 @@ def cliff_duration():
 
 
 @pytest.fixture(scope="module")
-def vesting_target(VestingEscrowSimple, accounts):
-    yield VestingEscrowSimple.deploy({"from": accounts[0]})
+def vesting_target(project, ychad):
+    yield ychad.deploy(project.VestingEscrowSimple)
 
 
 @pytest.fixture(scope="module")
-def vesting_factory(VestingEscrowFactory, accounts, vesting_target):
-    yield VestingEscrowFactory.deploy(vesting_target, {"from": accounts[0]})
+def vesting_factory(project, ychad, vesting_target):
+    yield ychad.deploy(project.VestingEscrowFactory, vesting_target)
 
 
 @pytest.fixture(scope="module")
-def vesting(VestingEscrowSimple, accounts, vesting_factory, token, start_time, cliff_duration):
-    token._mint_for_testing(10 ** 20, {"from": accounts[0]})
-    token.approve(vesting_factory, 10 ** 20, {"from": accounts[0]})
-    tx = vesting_factory.deploy_vesting_contract(
+def vesting(project, ychad, bob, vesting_factory, token, start_time, cliff_duration):
+    amount = ape.convert("100 YFI", int)
+    token.approve(vesting_factory, amount, sender=ychad)
+    receipt = vesting_factory.deploy_vesting_contract(
         token,
-        accounts[1],
-        10 ** 20,
+        bob,
+        amount,
         3 * YEAR,  # duration
         start_time,
         cliff_duration,
-        {"from": accounts[0]},
+        sender=ychad,
     )
-    yield VestingEscrowSimple.at(tx.new_contracts[0])
+    escrow = vesting_factory.VestingEscrowCreated.from_receipt(receipt)[0]
+    yield project.VestingEscrowSimple.at(escrow.escrow)
