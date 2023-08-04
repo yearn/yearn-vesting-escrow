@@ -45,7 +45,6 @@ def test_claim_partial(
 
 
 def test_claim_multiple(chain, vesting, receiver, token, amount, start_time, end_time):
-    # chain.sleep(start_time - chain.time() - 1000)
     chain.pending_timestamp = start_time - 1000
     balance = 0
     for _ in range(11):

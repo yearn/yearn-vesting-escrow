@@ -1,9 +1,9 @@
-import brownie
+import ape
 
 
-def test_reinit_impossible(vesting, accounts, token):
-    vesting.renounce_ownership({"from": accounts[0]})
-    with brownie.reverts("dev: can only initialize once"):
+def test_reinit_impossible(vesting, ychad, token):
+    vesting.renounce_ownership(sender=ychad)
+    with ape.reverts(dev_message="dev: can only initialize once"):
         vesting.initialize(
-            accounts[1], token, accounts[1], 0, 0, 0, 0, {"from": accounts[1]}
+            ychad, token, ychad, 0, 0, 0, 0, sender=ychad
         )

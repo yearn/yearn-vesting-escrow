@@ -3,12 +3,12 @@ from ape.utils import ZERO_ADDRESS
 
 
 def test_commit_admin_only(vesting, ytrades):
-    with ape.reverts(): # dev_message="dev: admin only"):
+    with ape.reverts(dev_message="dev: admin only"):
         vesting.commit_transfer_ownership(ytrades, sender=ytrades)
 
 
 def test_apply_admin_only(vesting, ytrades):
-    with ape.reverts(): # dev_message="dev: future admin only"):
+    with ape.reverts(dev_message="dev: future admin only"):
         vesting.apply_transfer_ownership(sender=ytrades)
 
 
@@ -27,7 +27,7 @@ def test_apply_transfer_ownership(vesting, ychad, ytrades):
 
 
 def test_apply_without_commit(vesting, ychad):
-    with ape.reverts(): # dev_message="dev: future admin only"):
+    with ape.reverts(dev_message="dev: future admin only"):
         vesting.apply_transfer_ownership(sender=ychad)
 
 
