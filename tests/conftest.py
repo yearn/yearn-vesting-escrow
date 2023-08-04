@@ -19,7 +19,7 @@ def ytrades(accounts):
 
 @pytest.fixture(scope="session")
 def receiver(accounts):
-    yield accounts.at("0x0000000000000000000000000000000000031337", True)
+    yield accounts["0x0000000000000000000000000000000000031337"]
 
 
 @pytest.fixture(scope="module")
@@ -53,12 +53,13 @@ def vesting_factory(project, ychad, vesting_target):
 
 
 @pytest.fixture(scope="module")
-def vesting(project, ychad, bob, vesting_factory, token, start_time, cliff_duration):
-    amount = ape.convert("100 YFI", int)
+
+@pytest.fixture(scope="module")
+def vesting(project, ychad, receiver, vesting_factory, token, amount, start_time, cliff_duration):
     token.approve(vesting_factory, amount, sender=ychad)
     receipt = vesting_factory.deploy_vesting_contract(
         token,
-        bob,
+        receiver,
         amount,
         3 * YEAR,  # duration
         start_time,
