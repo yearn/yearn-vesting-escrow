@@ -22,6 +22,11 @@ def receiver(accounts):
     yield accounts["0x0000000000000000000000000000000000031337"]
 
 
+@pytest.fixture(scope="session")
+def cold_storage(accounts):
+    yield accounts["0x000000000000000000000000000000000000C001"]
+
+
 @pytest.fixture(scope="module")
 def token():
     return tokens["YFI"]
@@ -53,6 +58,9 @@ def vesting_factory(project, ychad, vesting_target):
 
 
 @pytest.fixture(scope="module")
+def amount():
+    yield ape.convert("100 YFI", int)
+
 
 @pytest.fixture(scope="module")
 def vesting(project, ychad, receiver, vesting_factory, token, amount, start_time, cliff_duration):
