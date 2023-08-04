@@ -35,9 +35,9 @@ def test_rug_pull_before_start_time(vesting, token, accounts, chain, end_time):
 
 
 def test_rug_pull_partially_ununclaimed(
-    vesting, token, accounts, chain, start_time, end_time
+    vesting, token, accounts, chain, start_time, end_time, cliff_duration
 ):
-    chain.sleep(start_time - chain.time() + 31337)
+    chain.sleep(start_time - chain.time() + 2 * cliff_duration)
     tx = vesting.rug_pull({"from": accounts[0]})
     chain.sleep(end_time - chain.time())
 
@@ -48,3 +48,19 @@ def test_rug_pull_partially_ununclaimed(
     expected_amount = 10 ** 20 * (tx.timestamp - start_time) // (end_time - start_time)
     assert token.balanceOf(accounts[1]) == expected_amount
     assert token.balanceOf(accounts[0]) == vesting.total_locked() - expected_amount
+
+
+def test_rug_pull_for_cliff(
+    vesting, token, accounts, chain, start_time, end_time, cliff_duration
+):
+    chain.sleep(start_time - chain.time() + int(cliff_duration / 2))
+    tx = vesting.rug_pull({"from": accounts[0]})
+    chain.sleep(end_time - chain.time())
+    vesting.claim({"from": accounts[1]})
+
+    assert token.balanceOf(accounts[1]) == 0
+    assert token.balanceOf(accounts[0]) == vesting.total_locked()
+
+    chain.sleep(start_time - chain.time() + cliff_duration)
+    vesting.claim({"from": accounts[1]})
+    assert token.balanceOf(accounts[1]) == 0

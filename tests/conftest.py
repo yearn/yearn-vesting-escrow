@@ -45,6 +45,11 @@ def end_time(start_time):
 
 
 @pytest.fixture(scope="module")
+def cliff_duration():
+    yield int(YEAR / 6)
+
+
+@pytest.fixture(scope="module")
 def vesting_target(VestingEscrowSimple, accounts):
     yield VestingEscrowSimple.deploy({"from": accounts[0]})
 
@@ -55,7 +60,7 @@ def vesting_factory(VestingEscrowFactory, accounts, vesting_target):
 
 
 @pytest.fixture(scope="module")
-def vesting(VestingEscrowSimple, accounts, vesting_factory, token, start_time):
+def vesting(VestingEscrowSimple, accounts, vesting_factory, token, start_time, cliff_duration):
     token._mint_for_testing(10 ** 20, {"from": accounts[0]})
     token.approve(vesting_factory, 10 ** 20, {"from": accounts[0]})
     tx = vesting_factory.deploy_vesting_contract(
@@ -64,7 +69,7 @@ def vesting(VestingEscrowSimple, accounts, vesting_factory, token, start_time):
         10 ** 20,
         3 * YEAR,  # duration
         start_time,
-        0,  # cliff
+        cliff_duration,
         {"from": accounts[0]},
     )
     yield VestingEscrowSimple.at(tx.new_contracts[0])
