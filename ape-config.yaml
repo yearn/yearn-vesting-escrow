@@ -1,0 +1,21 @@
+name: yearn-vesting-escrow
+
+plugins:
+  - name: ens
+  - name: ethereum
+  - name: foundry
+  - name: tokens
+  - name: vyper
+ethereum:
+  default_network: mainnet-fork
+  mainnet_fork:
+    default_provider: foundry
+foundry:
+  fork:
+    ethereum:
+      mainnet:
+        upstream_provider: geth
+geth:
+  ethereum:
+    mainnet:
+      uri: ${WEB3_PROVIDER_URI}

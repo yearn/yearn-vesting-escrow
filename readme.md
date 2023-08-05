@@ -1,6 +1,7 @@
 # Yearn Vesting Escrow
 
 A modified version of [Curve Vesting Escrow](https://github.com/curvefi/curve-dao-contracts) contracts with added functionality:
+
 - An escrow can have a `start_date` in the past.
 - The first unlock can be delayed using `cliff_length`.
 - An ability to `claim` partial amounts or use a different beneficiary account.
