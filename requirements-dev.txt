@@ -1,2 +1,8 @@
-black==21.9b0
-eth-brownie>=1.17.0,<2.0.0
+ape-ens==0.6.1
+ape-etherscan==0.6.8
+ape-foundry==0.6.9
+ape-tokens==0.6.2
+ape-vyper==0.6.9
+black==21.12b0
+eth-ape==0.6.13
+hypothesis==6.82.0
