@@ -1,8 +1,9 @@
 import ape
-from ape.utils import ZERO_ADDRESS
 
 
-def test_claim_non_vested_token(vesting, ychad, receiver, another_token, another_amount):
+def test_claim_non_vested_token(
+    vesting, ychad, receiver, another_token, another_amount
+):
     another_token.transfer(vesting, another_amount, sender=ychad)
 
     vesting.collect_dust(another_token, sender=receiver)

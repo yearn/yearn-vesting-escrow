@@ -16,7 +16,9 @@ def test_rug_pull(vesting, ychad):
     assert vesting.disabled_at() == tx.timestamp
 
 
-def test_rug_pull_after_end_time(chain, vesting, ychad, receiver, token, amount, end_time):
+def test_rug_pull_after_end_time(
+    chain, vesting, ychad, receiver, token, amount, end_time
+):
     balance_ychad = token.balanceOf(ychad)
     chain.pending_timestamp = end_time
 
@@ -46,12 +48,15 @@ def test_rug_pull_partially_ununclaimed(
     chain.pending_timestamp = end_time
 
     assert token.balanceOf(vesting) == vesting.unclaimed()
-    
+
     vesting.claim(sender=receiver)
 
     expected_amount = amount * (tx.timestamp - start_time) // (end_time - start_time)
     assert token.balanceOf(receiver) == expected_amount
-    assert token.balanceOf(ychad) == balance_ychad + vesting.total_locked() - expected_amount
+    assert (
+        token.balanceOf(ychad)
+        == balance_ychad + vesting.total_locked() - expected_amount
+    )
 
 
 def test_rug_pull_for_cliff(

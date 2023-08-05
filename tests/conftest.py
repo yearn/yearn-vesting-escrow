@@ -8,7 +8,6 @@ YEAR = int(365.25 * 24 * 60 * 60)
 
 @pytest.fixture(scope="session")
 def duration():
-    # 3 years
     yield 3 * YEAR
 
 
@@ -78,7 +77,17 @@ def another_amount():
 
 
 @pytest.fixture(scope="module")
-def vesting(project, ychad, receiver, vesting_factory, token, amount, start_time, cliff_duration, duration):
+def vesting(
+    project,
+    ychad,
+    receiver,
+    vesting_factory,
+    token,
+    amount,
+    start_time,
+    cliff_duration,
+    duration,
+):
     token.approve(vesting_factory, amount, sender=ychad)
     receipt = vesting_factory.deploy_vesting_contract(
         token,

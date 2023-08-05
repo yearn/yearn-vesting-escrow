@@ -1,17 +1,10 @@
 import ape
-import pytest
-from ape.utils import ZERO_ADDRESS
 
 
 def test_approve_fail(vesting_factory, ychad, receiver, token, amount, duration):
     with ape.reverts("ERC20: transfer amount exceeds allowance"):
         vesting_factory.deploy_vesting_contract(
-            token,
-            receiver,
-            amount,
-            duration,
-            ychad,
-            sender=ychad
+            token, receiver, amount, duration, ychad, sender=ychad
         )
 
 
@@ -19,7 +12,16 @@ def test_target_is_set(vesting_factory, vesting_target):
     assert vesting_factory.target() == vesting_target
 
 
-def test_deploy(vesting_factory, ychad, receiver, token, amount, start_time, duration, cliff_duration):
+def test_deploy(
+    vesting_factory,
+    ychad,
+    receiver,
+    token,
+    amount,
+    start_time,
+    duration,
+    cliff_duration,
+):
     token.approve(vesting_factory, amount, sender=ychad)
     receipt = vesting_factory.deploy_vesting_contract(
         token, receiver, amount, duration, start_time, cliff_duration, sender=ychad
@@ -29,11 +31,28 @@ def test_deploy(vesting_factory, ychad, receiver, token, amount, start_time, dur
     vesting_escrows = vesting_factory.VestingEscrowCreated.from_receipt(receipt)
 
     assert len(vesting_escrows) == 1
-    assert vesting_escrows[0] == vesting_factory.VestingEscrowCreated(ychad, token, receiver, vesting_escrow_address, amount, start_time, duration, cliff_duration)
+    assert vesting_escrows[0] == vesting_factory.VestingEscrowCreated(
+        ychad,
+        token,
+        receiver,
+        vesting_escrow_address,
+        amount,
+        start_time,
+        duration,
+        cliff_duration,
+    )
 
 
 def test_init_variables(
-    project, vesting_factory, ychad, receiver, token, amount, start_time, duration, cliff_duration
+    project,
+    vesting_factory,
+    ychad,
+    receiver,
+    token,
+    amount,
+    start_time,
+    duration,
+    cliff_duration,
 ):
     token.approve(vesting_factory, amount, sender=ychad)
     receipt = vesting_factory.deploy_vesting_contract(
@@ -51,7 +70,14 @@ def test_init_variables(
 
 
 def test_token_events(
-    vesting_factory, ychad, receiver, token, amount, start_time, duration, cliff_duration
+    vesting_factory,
+    ychad,
+    receiver,
+    token,
+    amount,
+    start_time,
+    duration,
+    cliff_duration,
 ):
     token.approve(vesting_factory, amount, sender=ychad)
     receipt = vesting_factory.deploy_vesting_contract(

@@ -13,14 +13,18 @@ def test_claim_less(chain, vesting, receiver, token, amount, end_time):
     assert token.balanceOf(receiver) == amount / 10
 
 
-def test_claim_beneficiary(chain, vesting, receiver, cold_storage, token, amount, end_time):
+def test_claim_beneficiary(
+    chain, vesting, receiver, cold_storage, token, amount, end_time
+):
     chain.pending_timestamp = end_time
     vesting.claim(cold_storage, sender=receiver)
 
     assert token.balanceOf(cold_storage) == amount
 
 
-def test_claim_recepient_beneficiary(chain, vesting, ychad, receiver, token, amount, end_time):
+def test_claim_recepient_beneficiary(
+    chain, vesting, ychad, receiver, token, amount, end_time
+):
     chain.pending_timestamp = end_time
     vesting.claim(receiver, sender=ychad)
 
@@ -35,7 +39,7 @@ def test_claim_before_start(chain, vesting, receiver, token, start_time):
 
 
 def test_claim_partial(
-   chain, vesting, receiver, token, start_time, end_time, cliff_duration
+    chain, vesting, receiver, token, start_time, end_time, cliff_duration
 ):
     chain.pending_timestamp = start_time + 2 * cliff_duration
     tx = vesting.claim(sender=receiver)
@@ -47,7 +51,9 @@ def test_claim_partial(
     assert vesting.total_claimed() == expected_amount
 
 
-def test_claim_multiple(chain, vesting, receiver, token, amount, start_time, end_time, cliff_duration):
+def test_claim_multiple(
+    chain, vesting, receiver, token, amount, start_time, end_time, cliff_duration
+):
     chain.pending_timestamp = start_time + cliff_duration
     balance = 0
     for _ in range(10):
