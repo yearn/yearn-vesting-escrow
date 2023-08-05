@@ -24,6 +24,13 @@ def test_claim_beneficiary(chain, vesting, receiver, cold_storage, token, amount
     assert token.balanceOf(cold_storage) == amount
 
 
+def test_claim_recepient_beneficiary(chain, vesting, ychad, receiver, token, amount, end_time):
+    chain.pending_timestamp = end_time
+    vesting.claim(receiver, sender=ychad)
+
+    assert token.balanceOf(receiver) == amount
+
+
 def test_claim_before_start(chain, vesting, receiver, token, start_time):
     chain.pending_timestamp = start_time - 5
     vesting.claim(sender=receiver)
