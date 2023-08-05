@@ -51,11 +51,11 @@ def test_claim_partial(
     assert vesting.total_claimed() == expected_amount
 
 
-def test_claim_multiple(chain, vesting, receiver, token, amount, start_time, end_time):
-    chain.pending_timestamp = start_time - 1000
+def test_claim_multiple(chain, vesting, receiver, token, amount, start_time, end_time, cliff_duration):
+    chain.pending_timestamp = start_time + cliff_duration
     balance = 0
-    for _ in range(11):
-        chain.pending_timestamp += (end_time - start_time) // 10
+    for _ in range(10):
+        chain.pending_timestamp += (end_time - start_time - cliff_duration) // 10
         vesting.claim(sender=receiver)
         new_balance = token.balanceOf(receiver)
         assert new_balance > balance
