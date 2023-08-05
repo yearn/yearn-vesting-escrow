@@ -1,7 +1,3 @@
-import pytest
-from ape.utils import ZERO_ADDRESS
-
-
 def test_claim_full(chain, vesting, receiver, token, amount, end_time):
     chain.pending_timestamp = end_time
     vesting.claim(sender=receiver)

@@ -3,10 +3,13 @@ from ape_tokens import tokens
 from ape.types import AddressType
 import pytest
 
+YEAR = int(365.25 * 24 * 60 * 60)
+
 
 @pytest.fixture(scope="session")
-def year():
-    yield int(365.25 * 24 * 60 * 60)
+def duration():
+    # 3 years
+    yield 3 * YEAR
 
 
 @pytest.fixture(scope="session")
@@ -41,17 +44,17 @@ def another_token():
 
 @pytest.fixture(scope="module")
 def start_time(chain):
-    yield chain.pending_timestamp + 1000 + 86400 * 365
+    yield chain.pending_timestamp + YEAR
 
 
 @pytest.fixture(scope="module")
-def end_time(start_time, year):
-    yield int(start_time + 3 * year)
+def end_time(start_time, duration):
+    yield int(start_time + duration)
 
 
 @pytest.fixture(scope="module")
-def cliff_duration(year):
-    yield year // 6
+def cliff_duration(duration):
+    yield duration // 6
 
 
 @pytest.fixture(scope="module")
@@ -75,13 +78,13 @@ def another_amount():
 
 
 @pytest.fixture(scope="module")
-def vesting(project, ychad, receiver, vesting_factory, token, amount, start_time, cliff_duration, year):
+def vesting(project, ychad, receiver, vesting_factory, token, amount, start_time, cliff_duration, duration):
     token.approve(vesting_factory, amount, sender=ychad)
     receipt = vesting_factory.deploy_vesting_contract(
         token,
         receiver,
         amount,
-        3 * year,  # duration
+        duration,
         start_time,
         cliff_duration,
         sender=ychad,
