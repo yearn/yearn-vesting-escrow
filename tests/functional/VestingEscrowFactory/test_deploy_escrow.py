@@ -2,7 +2,7 @@ import ape
 
 
 def test_approve_fail(vesting_factory, ychad, receiver, token, amount, duration):
-    with ape.reverts("ERC20: transfer amount exceeds allowance"):
+    with ape.reverts(): # no error message, depends on token
         vesting_factory.deploy_vesting_contract(
             token, receiver, amount, duration, ychad, sender=ychad
         )

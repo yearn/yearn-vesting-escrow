@@ -68,13 +68,13 @@ def vesting_factory(project, ychad, vesting_blueprint):
 
 
 @pytest.fixture(scope="module")
-def amount():
-    yield ape.convert("100 YFI", int)
+def amount(token):
+    yield ape.convert(f"100 {token.symbol()}", int)
 
 
 @pytest.fixture(scope="module")
-def another_amount():
-    yield ape.convert("10 DAI", int)
+def another_amount(another_token):
+    yield ape.convert(f"10 {another_token.symbol()}", int)
 
 
 @pytest.fixture(scope="module")
