@@ -68,8 +68,8 @@ def deploy_vesting_contract(
         code_offset=3,
     )
 
-    assert ERC20(token).transferFrom(msg.sender, self, amount)  # dev: funding failed
-    assert ERC20(token).approve(escrow, amount)  # dev: approve failed
+    assert ERC20(token).transferFrom(msg.sender, self, amount, default_return_value=True) # dev: funding failed
+    assert ERC20(token).approve(escrow, amount, default_return_value=True)  # dev: approve failed
     VestingEscrowSimple(escrow).seed(amount)  # dev: could not pull funds
 
     log VestingEscrowCreated(msg.sender, token, recipient, escrow, amount, vesting_start, vesting_duration, cliff_length)

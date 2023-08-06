@@ -139,7 +139,7 @@ def claim(beneficiary: address = msg.sender, amount: uint256 = max_value(uint256
     claimable: uint256 = min(self._unclaimed(claim_period_end), amount)
     self.total_claimed += claimable
 
-    assert self.token.transfer(beneficiary, claimable)
+    assert self.token.transfer(beneficiary, claimable, default_return_value=True)
     log Claim(beneficiary, claimable)
 
 
@@ -154,7 +154,7 @@ def rug_pull():
     self.disabled_at = block.timestamp
     ruggable: uint256 = self._locked()
 
-    assert self.token.transfer(self.admin, ruggable)
+    assert self.token.transfer(self.admin, ruggable, default_return_value=True)
     log RugPull(self.recipient, ruggable)
 
 
@@ -196,4 +196,4 @@ def collect_dust(token: address, beneficiary: address = msg.sender):
     recipient: address = self.recipient
     assert msg.sender == recipient or recipient == beneficiary # dev: not authorized
     assert (token != self.token.address or block.timestamp > self.disabled_at) # dev: can't collect
-    assert ERC20(token).transfer(beneficiary, ERC20(token).balanceOf(self))
+    assert ERC20(token).transfer(beneficiary, ERC20(token).balanceOf(self), default_return_value=True)
