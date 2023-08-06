@@ -1,4 +1,4 @@
-# @version 0.3.7
+# @version 0.3.9
 """
 @title Simple Vesting Escrow
 @author Curve Finance, Yearn Finance

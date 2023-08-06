@@ -5,6 +5,7 @@
 # Python
 .env
 .venv
+.envrc
 .pytest_cache
 __pycache__
 
