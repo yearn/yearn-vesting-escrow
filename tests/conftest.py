@@ -57,14 +57,14 @@ def cliff_duration(duration):
 
 
 @pytest.fixture(scope="module")
-def vesting_target(project, ychad):
+def vesting_blueprint(project, ychad):
     receipt = ychad.declare(project.VestingEscrowSimple)
     yield receipt.contract_address
 
 
 @pytest.fixture(scope="module")
-def vesting_factory(project, ychad, vesting_target):
-    yield ychad.deploy(project.VestingEscrowFactory, vesting_target)
+def vesting_factory(project, ychad, vesting_blueprint):
+    yield ychad.deploy(project.VestingEscrowFactory, vesting_blueprint)
 
 
 @pytest.fixture(scope="module")

@@ -8,8 +8,8 @@ def test_approve_fail(vesting_factory, ychad, receiver, token, amount, duration)
         )
 
 
-def test_target_is_set(vesting_factory, vesting_target):
-    assert vesting_factory.TARGET() == vesting_target
+def test_target_is_set(vesting_factory, vesting_blueprint):
+    assert vesting_factory.BLUEPRINT() == vesting_blueprint
 
 
 def test_deploy(
