@@ -35,20 +35,12 @@ cliff_length: public(uint256)
 total_locked: public(uint256)
 total_claimed: public(uint256)
 disabled_at: public(uint256)
-initialized: public(bool)
 
 admin: public(address)
 future_admin: public(address)
 
 @external
-def __init__():
-    # ensure that the original contract cannot be initialized
-    self.initialized = True
-
-
-@external
-@nonreentrant('lock')
-def initialize(
+def __init__(
     admin: address,
     token: address,
     recipient: address,
@@ -56,7 +48,7 @@ def initialize(
     start_time: uint256,
     end_time: uint256,
     cliff_length: uint256,
-) -> bool:
+):
     """
     @notice Initialize the contract.
     @dev This function is seperate from `__init__` because of the factory pattern
@@ -70,23 +62,24 @@ def initialize(
     @param end_time Time until everything should be vested
     @param cliff_length Duration after which the first portion vests
     """
-    assert not self.initialized  # dev: can only initialize once
-    self.initialized = True
-
     self.token = ERC20(token)
     self.admin = admin
     self.start_time = start_time
     self.end_time = end_time
     self.cliff_length = cliff_length
 
-    assert self.token.transferFrom(msg.sender, self, amount)  # dev: could not fund escrow
-
     self.recipient = recipient
     self.disabled_at = end_time  # Set to maximum time
     self.total_locked = amount
-    log Fund(recipient, amount)
 
-    return True
+
+@external
+def seed(amount: uint256):
+    # probably should guard this one
+    # callable only during init
+    assert self.token.transferFrom(msg.sender, self, amount, default_return_value=True)  # dev: could not fund escrow
+
+    log Fund(self.recipient, amount)
 
 
 @internal

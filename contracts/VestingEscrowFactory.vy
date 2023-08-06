@@ -10,15 +10,7 @@ from vyper.interfaces import ERC20
 
 
 interface VestingEscrowSimple:
-    def initialize(
-        admin: address,
-        token: address,
-        recipient: address,
-        amount: uint256,
-        start_time: uint256,
-        end_time: uint256,
-        cliff_length: uint256,
-    ) -> bool: nonpayable
+    def seed(amount: uint256): nonpayable
 
 
 event VestingEscrowCreated:
@@ -32,17 +24,17 @@ event VestingEscrowCreated:
     cliff_length: uint256
 
 
-target: public(address)
+BLUEPRINT: public(immutable(address))
 
 @external
-def __init__(target: address):
+def __init__(blueprint: address):
     """
     @notice Contract constructor
     @dev Prior to deployment you must deploy one copy of `VestingEscrowSimple` which
          is used as a library for vesting contracts deployed by this factory
-    @param target `VestingEscrowSimple` contract address
+    @param blueprint `VestingEscrowSimple` contract address
     """
-    self.target = target
+    BLUEPRINT = blueprint
 
 
 @external
@@ -63,10 +55,8 @@ def deploy_vesting_contract(
     @param vesting_start Epoch time when tokens begin to vest
     """
     assert cliff_length <= vesting_duration  # dev: incorrect vesting cliff
-    escrow: address = create_forwarder_to(self.target)
-    assert ERC20(token).transferFrom(msg.sender, self, amount)  # dev: funding failed
-    assert ERC20(token).approve(escrow, amount)  # dev: approve failed
-    VestingEscrowSimple(escrow).initialize(
+    escrow: address = create_from_blueprint(
+        BLUEPRINT,
         msg.sender,
         token,
         recipient,
@@ -74,6 +64,13 @@ def deploy_vesting_contract(
         vesting_start,
         vesting_start + vesting_duration,
         cliff_length,
+        salt=convert(msg.sender, bytes32),  # Ensures unique deployment per caller
+        code_offset=3,
     )
+
+    assert ERC20(token).transferFrom(msg.sender, self, amount)  # dev: funding failed
+    assert ERC20(token).approve(escrow, amount)  # dev: approve failed
+    VestingEscrowSimple(escrow).seed(amount)  # dev: could not pull funds
+
     log VestingEscrowCreated(msg.sender, token, recipient, escrow, amount, vesting_start, vesting_duration, cliff_length)
     return escrow
