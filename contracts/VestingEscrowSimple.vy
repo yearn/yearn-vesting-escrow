@@ -20,6 +20,7 @@ event Claim:
 event RugPull:
     recipient: address
     rugged: uint256
+    timestamp: uint256
 
 event CommitOwnership:
     admin: address
@@ -144,18 +145,24 @@ def claim(beneficiary: address = msg.sender, amount: uint256 = max_value(uint256
 
 
 @external
-def rug_pull():
+def rug_pull(ts: uint256 = block.timestamp):
     """
-    @notice Disable further flow of tokens and clawback the unvested part to admin
+    @notice Disable further flow of tokens and clawback the unvested part to admin.
+        Rugging more than once is futile.
+    @dev Admin is set to zero address.
+    @param ts Timestamp of the clawback.
     """
     assert msg.sender == self.admin  # dev: admin only
-    # NOTE: Rugging more than once is futile
+    assert ts >= block.timestamp and ts <= self.end_time # dev: no back to the future
 
-    self.disabled_at = block.timestamp
-    ruggable: uint256 = self._locked()
+    self.disabled_at = ts
+    ruggable: uint256 = self._locked(ts)
 
     assert self.token.transfer(self.admin, ruggable, default_return_value=True)
-    log RugPull(self.recipient, ruggable)
+
+    self.admin = empty(address)
+    log ApplyOwnership(empty(address))
+    log RugPull(self.recipient, ruggable, ts)
 
 
 @external
