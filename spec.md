@@ -75,7 +75,7 @@ version 0.3-dev0
         - log `Claim` with beneficiary and claimed amount
     - returns
         - amount claimed
-- `terminate`
+- `terminate` (previously `rug_pull`)
     - arguments
         - `time: uint256 = block.timestamp` optionally terminate at a date and clawback lower amount
         - TODO: should we add a `recipient` here too? what could be the use case?
@@ -89,7 +89,15 @@ version 0.3-dev0
         - the amount of tokens is determined as tokens still locked at `time`
         - tokens are transferred to `admin`
         - log `VestingTerminated(self.recipient, self.admin, rugged, time)`
-- `set_admin`
+        - log `SetFree(self.admin)`
+- `set_free` (previously `set_admin`)
+    - arguments
+        - none
+    - constraints
+        - can only be called by `admin`
+    - actions
+        - set admin to `empty(address)`
+        - log `SetFree(self.admin)`
 - `collect_dust`
 - `unclaimed`
 - `locked`
