@@ -13,7 +13,7 @@ version 0.3-dev0
         - `amount: uint256` total vesting amount
         - `vesting_duration: uint256` in seconds
         - `vesting_start: uint256 = block.timestamp` in unix epoch
-        - `cliff_length: uint256 = 0` in seconds
+        - `cliff_duration: uint256 = 0` in seconds
         - `open_claim: bool = True`
             - allows anyone to claim to recipient, use this for smart contract recipients
         - `admin: address = msg.sender`
@@ -27,7 +27,7 @@ version 0.3-dev0
                 - the factory must have a `token` allowance of at least `amount`
         - `vesting_start`
             - can be in the past
-        - `cliff_length`
+        - `cliff_duration`
             - must not exceed vesting duration
     - actions
         - create a new vesting escrow using `create_minimal_proxy_to`
@@ -46,7 +46,7 @@ version 0.3-dev0
         - amount
         - start_time
         - end_time
-        - cliff_length
+        - cliff_duration
         - open_claim
         - admin
     - constraints
@@ -75,7 +75,20 @@ version 0.3-dev0
         - log `Claim` with beneficiary and claimed amount
     - returns
         - amount claimed
-- `rug_pull`
+- `terminate`
+    - arguments
+        - `time: uint256 = block.timestamp` optionally terminate at a date and clawback lower amount
+        - TODO: should we add a `recipient` here too? what could be the use case?
+    - constraints
+        - can only be called by `admin`
+        - time must be now or in the future
+        - time must not exceed vesting end time
+    - actions
+        - `disabled_at` is set to `time`
+        - admin is set to `empty(address)`
+        - the amount of tokens is determined as tokens still locked at `time`
+        - tokens are transferred to `admin`
+        - log `VestingTerminated(self.recipient, self.admin, rugged, time)`
 - `set_admin`
 - `collect_dust`
 - `unclaimed`
