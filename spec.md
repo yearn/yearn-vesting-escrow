@@ -57,8 +57,6 @@ version 0.3-dev0
         - admin
     - constraints
         - must not be initialized
-        - must be called from the factory
-            - TODO: needs to know the factory? tango with deploy.
         - must be funded
             - implicitly checked by only allowing creation from factory
     - actions
@@ -72,7 +70,6 @@ version 0.3-dev0
         - `amount: uint256 = max_value(uint256)` optionally claim a fixed amount
     - constraints
         - recipient can claim to any beneficiary
-            - TODO: should we disallow claiming to [empty(address), self, token]
         - if beneficiary is the recipient and `open_claim` is True, allow anyone to claim
         - the `amount` is limited by the maximum amount claimable
     - actions
@@ -84,7 +81,8 @@ version 0.3-dev0
 - `terminate` (previously `rug_pull`)
     - arguments
         - `time: uint256 = block.timestamp` optionally terminate at a date and clawback lower amount
-        - TODO: should we add a `recipient` here too? what could be the use case?
+        - `beneficiary: address` where to send the clawed back amount
+            - one use case could be to reward the recipient early, another is to transfer to treasury and not have admin handle to funds
     - constraints
         - can only be called by `admin`
         - time must be now or in the future
@@ -109,10 +107,10 @@ version 0.3-dev0
         - `token: address` dust token to claim
         - `beneficiary: address = msg.sender` where to send tokens to
     - constraints
-        - must be called by the vesting `recipient`
+        - recipient can claim to any beneficiary
+        - if beneficiary is the recipient and `open_claim` is True, allow anyone to claim
         - if the token is the vested token itself, the amount is determined as token balance of the contract minus the still locked portion of the vesting
         - for all other tokens, the full balance is sent
-        - TODO: should anyone be able to claim on behalf of recipient?
     - actions
         - send tokens to the beneficiary
 - `unclaimed`
