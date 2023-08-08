@@ -77,6 +77,11 @@ def another_amount(another_token):
 
 
 @pytest.fixture(scope="module")
+def open_claim():
+    yield True
+
+
+@pytest.fixture(scope="module")
 def vesting(
     project,
     ychad,
@@ -86,6 +91,7 @@ def vesting(
     amount,
     start_time,
     cliff_duration,
+    open_claim,
     duration,
 ):
     token.approve(vesting_factory, amount, sender=ychad)
@@ -96,6 +102,7 @@ def vesting(
         duration,
         start_time,
         cliff_duration,
+        open_claim,
         sender=ychad,
     )
     escrow = vesting_factory.VestingEscrowCreated.from_receipt(receipt)[0]

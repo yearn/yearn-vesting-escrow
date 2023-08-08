@@ -14,8 +14,9 @@ event Claim:
     recipient: indexed(address)
     claimed: uint256
 
-event RugPull:
+event VestingTerminated:
     recipient: address
+    admin: address
     rugged: uint256
     ts: uint256
 
@@ -110,7 +111,7 @@ def unclaimed() -> uint256:
     """
     @notice Get the number of unclaimed, vested tokens for recipient
     """
-    # NOTE: if `rug_pull` is activated, limit by the activation timestamp
+    # NOTE: if `terminate` is activated, limit by the activation timestamp
     return self._unclaimed(min(block.timestamp, self.disabled_at))
 
 
@@ -126,12 +127,12 @@ def locked() -> uint256:
     """
     @notice Get the number of locked tokens for recipient
     """
-    # NOTE: if `rug_pull` is activated, limit by the activation timestamp
+    # NOTE: if `terminate` is activated, limit by the activation timestamp
     return self._locked(min(block.timestamp, self.disabled_at))
 
 
 @external
-def claim(beneficiary: address = msg.sender, amount: uint256 = max_value(uint256)):
+def claim(beneficiary: address = msg.sender, amount: uint256 = max_value(uint256)) -> uint256:
     """
     @notice Claim tokens which have vested
     @param beneficiary Address to transfer claimed tokens to
@@ -147,14 +148,17 @@ def claim(beneficiary: address = msg.sender, amount: uint256 = max_value(uint256
     assert self.token.transfer(beneficiary, claimable, default_return_value=True)
     log Claim(beneficiary, claimable)
 
+    return claimable
+
 
 @external
-def rug_pull(ts: uint256 = block.timestamp):
+def terminate(ts: uint256 = block.timestamp, beneficiary: address = msg.sender):
     """
-    @notice Disable further flow of tokens and clawback the unvested part to admin.
+    @notice Disable further flow of tokens and clawback the unvested part to `beneficiary`.
         Rugging more than once is futile.
     @dev Admin is set to zero address.
     @param ts Timestamp of the clawback.
+    @param beneficiary Recipient of the unvested part.
     """
     admin: address = self.admin
     assert msg.sender == admin  # dev: admin only
@@ -163,12 +167,12 @@ def rug_pull(ts: uint256 = block.timestamp):
     self.disabled_at = ts
     ruggable: uint256 = self._locked(ts)
 
-    assert self.token.transfer(admin, ruggable, default_return_value=True)
+    assert self.token.transfer(beneficiary, ruggable, default_return_value=True)
 
     self.admin = empty(address)
 
     log SetFree(admin)
-    log RugPull(self.recipient, ruggable, ts)
+    log VestingTerminated(self.recipient, admin, ruggable, ts)
 
 
 @external
@@ -195,5 +199,10 @@ def set_open_claim(open_claim: bool):
 def collect_dust(token: address, beneficiary: address = msg.sender):
     recipient: address = self.recipient
     assert msg.sender == recipient or (self.open_claim and recipient == beneficiary) # dev: not authorized
-    assert (token != self.token.address or block.timestamp > self.disabled_at) # dev: can't collect
-    assert ERC20(token).transfer(beneficiary, ERC20(token).balanceOf(self), default_return_value=True)
+
+    # amount: uint256 = ERC20(token).balanceOf(self)
+    # if token == self.token.address:
+    #     amount = self.total_locked - self.total_claimed
+    amount: uint256 = ERC20(token).balanceOf(self) if token != self.token.address else self.total_locked - self.total_claimed
+
+    assert ERC20(token).transfer(beneficiary, amount, default_return_value=True)

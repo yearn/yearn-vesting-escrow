@@ -21,6 +21,7 @@ def test_deploy(
     start_time,
     duration,
     cliff_duration,
+    open_claim,
 ):
     token.approve(vesting_factory, amount, sender=ychad)
     receipt = vesting_factory.deploy_vesting_contract(
@@ -40,6 +41,7 @@ def test_deploy(
         start_time,
         duration,
         cliff_duration,
+        open_claim,
     )
 
 

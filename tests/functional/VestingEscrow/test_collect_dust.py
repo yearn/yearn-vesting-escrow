@@ -10,18 +10,22 @@ def test_claim_non_vested_token(
     assert another_token.balanceOf(receiver) == another_amount
 
 
-def test_do_not_allow_claim_of_vested_token(vesting, receiver, token):
-    with ape.reverts(): # dev_message="dev: can't collect"):
-        vesting.collect_dust(token, sender=receiver)
+def test_collect_dust_zero_vested_token(vesting, receiver, token):
+    receipt = vesting.collect_dust(token, sender=receiver)
+
+    transfers = token.Transfer.from_receipt(receipt)
+
+    assert len(transfers) == 1
+    assert transfers[0] == token.Transfer(vesting, receiver, 0)
 
 
-def test_allow_vested_token_dust_to_be_claim_at_end(
-    chain, vesting, ychad, receiver, token, amount, end_time
+def test_collect_dust_some_vested_token(
+    chain, vesting, ychad, receiver, token, amount, start_time, end_time
 ):
     token.transfer(vesting, amount, sender=ychad)
-    chain.pending_timestamp = end_time + 1
+    chain.pending_timestamp += (end_time - start_time) // 2
     vesting.collect_dust(token, sender=receiver)
-    assert token.balanceOf(receiver) == 2 * amount
+    assert token.balanceOf(receiver) == amount
 
 
 def test_collect_dust_beneficiary(
