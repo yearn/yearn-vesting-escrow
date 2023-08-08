@@ -20,7 +20,7 @@ event RugPull:
     timestamp: uint256
 
 event SetFree:
-    pass
+    admin: address
 
 event SetOpenClaim:
     state: bool
@@ -152,17 +152,18 @@ def rug_pull(ts: uint256 = block.timestamp):
     @dev Admin is set to zero address.
     @param ts Timestamp of the clawback.
     """
-    assert msg.sender == self.admin  # dev: admin only
+    admin: address = self.admin
+    assert msg.sender == admin  # dev: admin only
     assert ts >= block.timestamp and ts < self.end_time # dev: no back to the future
 
     self.disabled_at = ts
     ruggable: uint256 = self._locked(ts)
 
-    assert self.token.transfer(self.admin, ruggable, default_return_value=True)
+    assert self.token.transfer(admin, ruggable, default_return_value=True)
 
     self.admin = empty(address)
 
-    log SetFree()
+    log SetFree(admin)
     log RugPull(self.recipient, ruggable, ts)
 
 
@@ -171,10 +172,11 @@ def set_free():
     """
     @notice Renounce admin control of the escrow
     """
-    assert msg.sender == self.admin  # dev: admin only
+    admin: address = self.admin
+    assert msg.sender == admin  # dev: admin only
     self.admin = empty(address)
 
-    log SetFree()
+    log SetFree(admin)
 
 
 @external
