@@ -22,6 +22,9 @@ event RugPull:
 event SetFree:
     pass
 
+event SetOpenClaim:
+    state: bool
+
 
 recipient: public(address)
 token: public(ERC20)
@@ -31,6 +34,7 @@ cliff_length: public(uint256)
 total_locked: public(uint256)
 total_claimed: public(uint256)
 disabled_at: public(uint256)
+open_claim: public(bool)
 
 admin: public(address)
 
@@ -43,6 +47,7 @@ def __init__(
     start_time: uint256,
     end_time: uint256,
     cliff_length: uint256,
+    open_claim: bool,
 ):
     """
     @notice Initialize the contract.
@@ -66,6 +71,7 @@ def __init__(
     self.recipient = recipient
     self.disabled_at = end_time  # Set to maximum time
     self.total_locked = amount
+    self.open_claim = open_claim
 
 
 @external
@@ -128,7 +134,7 @@ def claim(beneficiary: address = msg.sender, amount: uint256 = max_value(uint256
     @param amount Amount of tokens to claim
     """
     recipient: address = self.recipient
-    assert msg.sender == recipient or recipient == beneficiary # dev: not authorized
+    assert msg.sender == recipient or (self.open_claim and recipient == beneficiary)  # dev: not authorized
 
     claim_period_end: uint256 = min(block.timestamp, self.disabled_at)
     claimable: uint256 = min(self._unclaimed(claim_period_end), amount)
@@ -172,8 +178,16 @@ def set_free():
 
 
 @external
+def set_open_claim(open_claim: bool):
+    assert msg.sender == self.recipient  # dev: not recipient
+    self.open_claim = open_claim
+
+    log SetOpenClaim(open_claim)
+
+
+@external
 def collect_dust(token: address, beneficiary: address = msg.sender):
     recipient: address = self.recipient
-    assert msg.sender == recipient or recipient == beneficiary # dev: not authorized
+    assert msg.sender == recipient or (self.open_claim and recipient == beneficiary) # dev: not authorized
     assert (token != self.token.address or block.timestamp > self.disabled_at) # dev: can't collect
     assert ERC20(token).transfer(beneficiary, ERC20(token).balanceOf(self), default_return_value=True)

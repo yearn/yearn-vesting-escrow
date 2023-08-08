@@ -1,3 +1,5 @@
+import ape
+
 def test_claim_full(chain, vesting, receiver, token, amount, end_time):
     chain.pending_timestamp = end_time
     vesting.claim(sender=receiver)
@@ -29,6 +31,13 @@ def test_claim_recepient_beneficiary(
     vesting.claim(receiver, sender=ychad)
 
     assert token.balanceOf(receiver) == amount
+
+
+def test_claim_not_open(chain, vesting, ychad, receiver, end_time):
+    vesting.set_open_claim(False, sender=receiver)
+    chain.pending_timestamp = end_time
+    with ape.reverts(dev_message="dev: not authorized"):
+        vesting.claim(receiver, sender=ychad)
 
 
 def test_claim_before_start(chain, vesting, receiver, token, start_time):
@@ -83,3 +92,4 @@ def test_claim_cliff(
 
     assert token.balanceOf(receiver) == expected_amount
     assert vesting.total_claimed() == expected_amount
+

@@ -45,6 +45,7 @@ def deploy_vesting_contract(
     vesting_duration: uint256,
     vesting_start: uint256 = block.timestamp,
     cliff_length: uint256 = 0,
+    open_claim: bool = True,
 ) -> address:
     """
     @notice Deploy a new vesting contract
@@ -53,6 +54,7 @@ def deploy_vesting_contract(
     @param amount Amount of tokens being vested for `recipient`
     @param vesting_duration Time period over which tokens are released
     @param vesting_start Epoch time when tokens begin to vest
+    @param open_claim Anyone can claim for `recipient`
     """
     assert cliff_length <= vesting_duration  # dev: incorrect vesting cliff
     assert vesting_duration > 0 # dev: duration must be > 0
@@ -65,6 +67,7 @@ def deploy_vesting_contract(
         vesting_start,
         vesting_start + vesting_duration,
         cliff_length,
+        open_claim,
         salt=convert(msg.sender, bytes32),  # Ensures unique deployment per caller
         code_offset=3,
     )
