@@ -38,7 +38,13 @@ version 0.3-dev0
 
 ## Vesting Escrow
 
-- template contract must be made defunct by storing `initialized` as True
+- global considerations
+    - return an appropriate value or True from methods to make contract calls cheaper
+    - use `default_return_value=True` for token transfers
+
+- `__init__`
+    - actions
+        - template contract must be made defunct by storing `initialized` as True
 - `initialize`
     - arguments
         - token
@@ -99,5 +105,15 @@ version 0.3-dev0
         - set admin to `empty(address)`
         - log `SetFree(self.admin)`
 - `collect_dust`
+    - arguments
+        - `token: address` dust token to claim
+        - `beneficiary: address = msg.sender` where to send tokens to
+    - constraints
+        - must be called by the vesting `recipient`
+        - if the token is the vested token itself, the amount is determined as token balance of the contract minus the still locked portion of the vesting
+        - for all other tokens, the full balance is sent
+        - TODO: should anyone be able to claim on behalf of recipient?
+    - actions
+        - send tokens to the beneficiary
 - `unclaimed`
 - `locked`
