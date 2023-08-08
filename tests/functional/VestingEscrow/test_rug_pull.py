@@ -80,6 +80,11 @@ def test_rug_pull_in_past(chain, vesting, ychad):
         vesting.rug_pull(ts, sender=ychad)
 
 
+def test_rug_pull_at_end_time(vesting, ychad, end_time):
+    with ape.reverts("dev: no back to the future"):
+        vesting.rug_pull(end_time, sender=ychad)
+
+
 def test_rug_pull_ts_balance(chain, vesting, ychad, receiver, token, start_time, end_time):
     ts = start_time + (end_time - start_time) // 2
     vesting.rug_pull(ts, sender=ychad)

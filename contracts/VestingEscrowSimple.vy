@@ -153,7 +153,7 @@ def rug_pull(ts: uint256 = block.timestamp):
     @param ts Timestamp of the clawback.
     """
     assert msg.sender == self.admin  # dev: admin only
-    assert ts >= block.timestamp and ts <= self.end_time # dev: no back to the future
+    assert ts >= block.timestamp and ts < self.end_time # dev: no back to the future
 
     self.disabled_at = ts
     ruggable: uint256 = self._locked(ts)
