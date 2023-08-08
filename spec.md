@@ -33,7 +33,7 @@ version 0.3-dev0
         - create a new vesting escrow using `create_minimal_proxy_to`
         - fund it by transferring tokens from `msg.sender` to the newly created `escrow`
         - `initialize` the `escrow`
-        - emit the creation parameters in `VestingEscrowCreated` event
+        - log the creation parameters in `VestingEscrowCreated` event
 
 
 ## Vesting Escrow
@@ -52,14 +52,29 @@ version 0.3-dev0
     - constraints
         - must not be initialized
         - must be called from the factory
-            - TODO needs to know the factory? tango with deploy.
+            - TODO: needs to know the factory? tango with deploy.
         - must be funded
             - implicitly checked by only allowing creation from factory
     - actions
         - save the creation parameters to storage
-        - set self.initialized to True
-        - return True
+        - store `initialized` as True
+    - returns
+        - True to make the call from a contract cheaper
 - `claim`
+    - arguments
+        - `beneficiary: address = msg.sender` where to send funds to
+        - `amount: uint256 = max_value(uint256)` optionally claim a fixed amount
+    - constraints
+        - recipient can claim to any beneficiary
+            - TODO: should we disallow claiming to [empty(address), self, token]
+        - if beneficiary is the recipient and `open_claim` is True, allow anyone to claim
+        - the `amount` is limited by the maximum amount claimable
+    - actions
+        - `total_claimed` is updated
+        - transfer tokens to beneficiary, use `default_return_value=True`
+        - log `Claim` with beneficiary and claimed amount
+    - returns
+        - amount claimed
 - `rug_pull`
 - `set_admin`
 - `collect_dust`
