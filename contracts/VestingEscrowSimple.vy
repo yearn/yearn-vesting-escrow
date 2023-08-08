@@ -47,7 +47,6 @@ def __init__():
 
 
 @external
-@nonreentrant('lock')
 def initialize(
     admin: address,
     token: address,
