@@ -10,7 +10,17 @@ from vyper.interfaces import ERC20
 
 
 interface VestingEscrowSimple:
-    def seed(amount: uint256): nonpayable
+    def initialize(
+        admin: address,
+        token: address,
+        recipient: address,
+        amount: uint256,
+        start_time: uint256,
+        end_time: uint256,
+        cliff_length: uint256,
+        open_claim: bool,
+    ) -> bool: nonpayable
+
 
 
 event VestingEscrowCreated:
@@ -22,6 +32,7 @@ event VestingEscrowCreated:
     vesting_start: uint256
     vesting_duration: uint256
     cliff_length: uint256
+    open_claim: bool
 
 
 BLUEPRINT: public(immutable(address))
@@ -46,6 +57,7 @@ def deploy_vesting_contract(
     vesting_start: uint256 = block.timestamp,
     cliff_length: uint256 = 0,
     open_claim: bool = True,
+    admin: address = msg.sender,
 ) -> address:
     """
     @notice Deploy a new vesting contract
@@ -58,9 +70,11 @@ def deploy_vesting_contract(
     """
     assert cliff_length <= vesting_duration  # dev: incorrect vesting cliff
     assert vesting_duration > 0 # dev: duration must be > 0
-    escrow: address = create_from_blueprint(
-        BLUEPRINT,
-        msg.sender,
+
+    escrow: address = create_minimal_proxy_to(BLUEPRINT)
+
+    VestingEscrowSimple(escrow).initialize(
+        admin,
         token,
         recipient,
         amount,
@@ -68,13 +82,9 @@ def deploy_vesting_contract(
         vesting_start + vesting_duration,
         cliff_length,
         open_claim,
-        salt=convert(msg.sender, bytes32),  # Ensures unique deployment per caller
-        code_offset=3,
     )
+    # skip transferFrom and approve and send directly to escrow
+    assert ERC20(token).transferFrom(msg.sender, escrow, amount, default_return_value=True) # dev: funding failed
 
-    assert ERC20(token).transferFrom(msg.sender, self, amount, default_return_value=True) # dev: funding failed
-    assert ERC20(token).approve(escrow, amount, default_return_value=True)  # dev: approve failed
-    VestingEscrowSimple(escrow).seed(amount)  # dev: could not pull funds
-
-    log VestingEscrowCreated(msg.sender, token, recipient, escrow, amount, vesting_start, vesting_duration, cliff_length)
+    log VestingEscrowCreated(msg.sender, token, recipient, escrow, amount, vesting_start, vesting_duration, cliff_length, open_claim)
     return escrow

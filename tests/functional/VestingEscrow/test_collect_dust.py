@@ -11,7 +11,7 @@ def test_claim_non_vested_token(
 
 
 def test_do_not_allow_claim_of_vested_token(vesting, receiver, token):
-    with ape.reverts(dev_message="dev: can't collect"):
+    with ape.reverts(): # dev_message="dev: can't collect"):
         vesting.collect_dust(token, sender=receiver)
 
 

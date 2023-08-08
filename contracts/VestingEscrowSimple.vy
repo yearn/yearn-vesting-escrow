@@ -17,7 +17,7 @@ event Claim:
 event RugPull:
     recipient: address
     rugged: uint256
-    timestamp: uint256
+    ts: uint256
 
 event SetFree:
     admin: address
@@ -35,11 +35,19 @@ total_locked: public(uint256)
 total_claimed: public(uint256)
 disabled_at: public(uint256)
 open_claim: public(bool)
+initialized: public(bool)
 
 admin: public(address)
 
 @external
-def __init__(
+def __init__():
+    # ensure that the original contract cannot be initialized
+    self.initialized = True
+
+
+@external
+@nonreentrant('lock')
+def initialize(
     admin: address,
     token: address,
     recipient: address,
@@ -48,7 +56,7 @@ def __init__(
     end_time: uint256,
     cliff_length: uint256,
     open_claim: bool,
-):
+) -> bool:
     """
     @notice Initialize the contract.
     @dev This function is seperate from `__init__` because of the factory pattern
@@ -62,6 +70,9 @@ def __init__(
     @param end_time Time until everything should be vested
     @param cliff_length Duration after which the first portion vests
     """
+    assert not self.initialized  # dev: can only initialize once
+    self.initialized = True
+
     self.token = ERC20(token)
     self.admin = admin
     self.start_time = start_time
@@ -73,14 +84,7 @@ def __init__(
     self.total_locked = amount
     self.open_claim = open_claim
 
-
-@external
-def seed(amount: uint256):
-    # probably should guard this one
-    # callable only during init
-    assert self.token.transferFrom(msg.sender, self, amount, default_return_value=True)  # dev: could not fund escrow
-
-    # log Fund(self.recipient, amount)
+    return True
 
 
 @internal

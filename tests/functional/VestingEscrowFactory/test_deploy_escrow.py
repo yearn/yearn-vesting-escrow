@@ -88,11 +88,8 @@ def test_token_events(
     transfers = token.Transfer.from_receipt(receipt)
     approval = token.Approval.from_receipt(receipt)
 
-    assert len(transfers) == 2
-    assert transfers[0] == token.Transfer(ychad, vesting_factory, amount)
-    assert transfers[1] == token.Transfer(vesting_factory, vesting_escrow, amount)
+    assert len(transfers) == 1
+    assert transfers[0] == token.Transfer(ychad, vesting_escrow, amount)
 
-    assert len(approval) == 3
+    assert len(approval) == 1
     assert approval[0] == token.Approval(ychad, vesting_factory, 0)
-    assert approval[1] == token.Approval(vesting_factory, vesting_escrow, amount)
-    assert approval[2] == token.Approval(vesting_factory, vesting_escrow, 0)

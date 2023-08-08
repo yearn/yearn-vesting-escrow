@@ -2,6 +2,15 @@ import pytest
 import ape
 from ape.utils import ZERO_ADDRESS
 
+
+def set_free():
+    pass
+
+
+def set_open_claim():
+    pass
+
+
 @pytest.mark.skip("refactor")
 def test_commit_admin_only(vesting, ytrades):
     with ape.reverts(dev_message="dev: admin only"):
