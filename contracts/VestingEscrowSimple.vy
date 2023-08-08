@@ -9,9 +9,6 @@
 
 from vyper.interfaces import ERC20
 
-event Fund:
-    recipient: indexed(address)
-    amount: uint256
 
 event Claim:
     recipient: indexed(address)
@@ -22,11 +19,9 @@ event RugPull:
     rugged: uint256
     timestamp: uint256
 
-event CommitOwnership:
-    admin: address
+event SetFree:
+    pass
 
-event ApplyOwnership:
-    admin: address
 
 recipient: public(address)
 token: public(ERC20)
@@ -38,7 +33,6 @@ total_claimed: public(uint256)
 disabled_at: public(uint256)
 
 admin: public(address)
-future_admin: public(address)
 
 @external
 def __init__(
@@ -80,7 +74,7 @@ def seed(amount: uint256):
     # callable only during init
     assert self.token.transferFrom(msg.sender, self, amount, default_return_value=True)  # dev: could not fund escrow
 
-    log Fund(self.recipient, amount)
+    # log Fund(self.recipient, amount)
 
 
 @internal
@@ -161,41 +155,20 @@ def rug_pull(ts: uint256 = block.timestamp):
     assert self.token.transfer(self.admin, ruggable, default_return_value=True)
 
     self.admin = empty(address)
-    log ApplyOwnership(empty(address))
+
+    log SetFree()
     log RugPull(self.recipient, ruggable, ts)
 
 
 @external
-def commit_transfer_ownership(addr: address):
-    """
-    @notice Transfer ownership of the contract to `addr`
-    @param addr Address to have ownership transferred to
-    """
-    assert msg.sender == self.admin  # dev: admin only
-    self.future_admin = addr
-    log CommitOwnership(addr)
-
-
-@external
-def apply_transfer_ownership():
-    """
-    @notice Apply pending ownership transfer
-    """
-    assert msg.sender == self.future_admin  # dev: future admin only
-    self.admin = msg.sender
-    self.future_admin = empty(address)
-    log ApplyOwnership(msg.sender)
-
-
-@external
-def renounce_ownership():
+def set_free():
     """
     @notice Renounce admin control of the escrow
     """
     assert msg.sender == self.admin  # dev: admin only
-    self.future_admin = empty(address)
     self.admin = empty(address)
-    log ApplyOwnership(empty(address))
+
+    log SetFree()
 
 
 @external
