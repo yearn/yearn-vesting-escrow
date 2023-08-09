@@ -16,7 +16,7 @@ version 0.3-dev0
         - `cliff_duration: uint256 = 0` in seconds
         - `open_claim: bool = True`
             - allows anyone to claim to recipient, use this for smart contract recipients
-        - `admin: address = msg.sender`
+        - `owner: address = msg.sender`
             - this party can terminate and clawback the escrow before it fully vests
             - set to `empty(address)` to disable clawback, this can also be done later with `escrow`
     - constraints
@@ -30,7 +30,7 @@ version 0.3-dev0
             - a regular transfer would suit better if it's in the past
         - `recipient`
             - must not be zero address
-        - `admin`
+        - `owner`
             - can be zero address
         - `cliff_duration`
             - must not exceed vesting duration
@@ -59,7 +59,7 @@ version 0.3-dev0
         - end_time
         - cliff_duration
         - open_claim
-        - admin
+        - owner
     - constraints
         - must not be initialized
         - must be funded
@@ -87,26 +87,26 @@ version 0.3-dev0
     - arguments
         - `time: uint256 = block.timestamp` optionally terminate at a date and clawback lower amount
         - `beneficiary: address` where to send the clawed back amount
-            - one use case could be to reward the recipient early, another is to transfer to treasury and not have admin handle to funds
+            - one use case could be to reward the recipient early, another is to transfer to treasury and not have owner handle to funds
     - constraints
-        - can only be called by `admin`
+        - can only be called by `owner`
         - time must be now or in the future
         - time must not exceed vesting end time
     - actions
         - `disabled_at` is set to `time`
-        - admin is set to `empty(address)`
+        - owner is set to `empty(address)`
         - the amount of tokens is determined as tokens still locked at `time`
-        - tokens are transferred to `admin`
-        - log `VestingRevoked(self.recipient, self.admin, amount, time)`
-        - log `VestingDisowned(self.admin)`
-- `disown` (previously `set_admin`)
+        - tokens are transferred to `owner`
+        - log `VestingRevoked(self.recipient, self.owner, amount, time)`
+        - log `VestingDisowned(self.owner)`
+- `disown` (previously `set_owner`)
     - arguments
         - none
     - constraints
-        - can only be called by `admin`
+        - can only be called by `owner`
     - actions
-        - set admin to `empty(address)`
-        - log `VestingDisowned(self.admin)`
+        - set owner to `empty(address)`
+        - log `VestingDisowned(self.owner)`
 - `collect_dust`
     - arguments
         - `token: address` dust token to claim
