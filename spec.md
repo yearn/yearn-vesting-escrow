@@ -97,13 +97,14 @@ version 0.3-dev0
         - can only be called by `owner`
         - time must be now or in the future
         - time must not exceed vesting end time
+        - claw back only the non-vested amount, so the time of the last claim doesn't matter
     - actions
         - `disabled_at` is set to `time`
         - owner is set to `empty(address)`
         - the amount of tokens is determined as tokens still locked at `time`
         - tokens are transferred to `owner`
-        - log `VestingRevoked(self.recipient, self.owner, amount, time)`
-        - log `VestingDisowned(self.owner)`
+        - log `VestingRevoked(owner, beneficiary, amount, time)`
+        - log `VestingDisowned(owner)`
 - `disown` (previously `set_owner`)
     - arguments
         - none
@@ -111,7 +112,7 @@ version 0.3-dev0
         - can only be called by `owner`
     - actions
         - set owner to `empty(address)`
-        - log `VestingDisowned(self.owner)`
+        - log `VestingDisowned(owner)`
 - `collect_dust`
     - arguments
         - `token: address` dust token to claim
