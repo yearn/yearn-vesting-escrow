@@ -6,7 +6,7 @@ from hypothesis import given, settings, strategies as st
 def test_claim_partial_copy(
     chain,
     vesting,
-    receiver,
+    recipient,
     token,
     amount,
     start_time,
@@ -16,7 +16,7 @@ def test_claim_partial_copy(
 ):
     chain.pending_timestamp += sleep_time
 
-    tx = vesting.claim(sender=receiver)
+    tx = vesting.claim(sender=recipient)
     if tx.timestamp - start_time > cliff_duration:
         expected_amount = (
             amount * (tx.timestamp - start_time) // (end_time - start_time)
@@ -24,4 +24,4 @@ def test_claim_partial_copy(
     else:
         expected_amount = 0
 
-    assert token.balanceOf(receiver) == expected_amount
+    assert token.balanceOf(recipient) == expected_amount

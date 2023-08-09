@@ -22,7 +22,7 @@ def ytrades(accounts):
 
 
 @pytest.fixture(scope="session")
-def receiver(accounts):
+def recipient(accounts):
     yield accounts["0x0000000000000000000000000000000000031337"]
 
 
@@ -57,13 +57,13 @@ def cliff_duration(duration):
 
 
 @pytest.fixture(scope="module")
-def vesting_blueprint(project, ychad):
+def vesting_target(project, ychad):
     yield ychad.deploy(project.VestingEscrowSimple)
 
 
 @pytest.fixture(scope="module")
-def vesting_factory(project, ychad, vesting_blueprint):
-    yield ychad.deploy(project.VestingEscrowFactory, vesting_blueprint)
+def vesting_factory(project, ychad, vesting_target):
+    yield ychad.deploy(project.VestingEscrowFactory, vesting_target)
 
 
 @pytest.fixture(scope="module")
@@ -85,7 +85,7 @@ def open_claim():
 def vesting(
     project,
     ychad,
-    receiver,
+    recipient,
     vesting_factory,
     token,
     amount,
@@ -97,7 +97,7 @@ def vesting(
     token.approve(vesting_factory, amount, sender=ychad)
     receipt = vesting_factory.deploy_vesting_contract(
         token,
-        receiver,
+        recipient,
         amount,
         duration,
         start_time,

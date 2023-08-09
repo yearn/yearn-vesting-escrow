@@ -1,48 +1,33 @@
-import pytest
 import ape
 from ape.utils import ZERO_ADDRESS
 
 
-def set_free():
-    pass
+def test_disown(vesting, ychad):
+    receipt = vesting.disown(sender=ychad)
+    disowned = vesting.Disowned.from_receipt(receipt)[0]
+
+    assert disowned == vesting.Disowned(ychad)
+    assert vesting.owner() == ZERO_ADDRESS
 
 
-def set_open_claim():
-    pass
+def test_disown_not_owner(vesting, recipient):
+    with ape.reverts():  # dev_message="dev: not owner")
+        vesting.disown(sender=recipient)
 
 
-@pytest.mark.skip("refactor")
-def test_commit_admin_only(vesting, ytrades):
-    with ape.reverts(dev_message="dev: admin only"):
-        vesting.commit_transfer_ownership(ytrades, sender=ytrades)
+def test_set_open_claim(vesting, recipient):
+    receipt = vesting.set_open_claim(False, sender=recipient)
+    open_claim = vesting.SetOpenClaim.from_receipt(receipt)[0]
+    assert not vesting.open_claim()
+    assert vesting.SetOpenClaim() == open_claim
 
-@pytest.mark.skip("refactor")
-def test_apply_admin_only(vesting, ytrades):
-    with ape.reverts(dev_message="dev: future admin only"):
-        vesting.apply_transfer_ownership(sender=ytrades)
+    # test state doens't change after similar change
+    receipt = vesting.set_open_claim(False, sender=recipient)
+    open_claim = vesting.SetOpenClaim.from_receipt(receipt)[0]
+    assert not vesting.open_claim()
+    assert vesting.SetOpenClaim() == open_claim
 
-@pytest.mark.skip("refactor")
-def test_commit_transfer_ownership(vesting, ychad, ytrades):
-    vesting.commit_transfer_ownership(ytrades, sender=ychad)
 
-    assert vesting.admin() == ychad
-    assert vesting.future_admin() == ytrades
-
-@pytest.mark.skip("refactor")
-def test_apply_transfer_ownership(vesting, ychad, ytrades):
-    vesting.commit_transfer_ownership(ytrades, sender=ychad)
-    vesting.apply_transfer_ownership(sender=ytrades)
-
-    assert vesting.admin() == ytrades
-
-@pytest.mark.skip("refactor")
-def test_apply_without_commit(vesting, ychad):
-    with ape.reverts(dev_message="dev: future admin only"):
-        vesting.apply_transfer_ownership(sender=ychad)
-
-@pytest.mark.skip("refactor")
-def test_renounce_ownership(vesting, ychad):
-    vesting.renounce_ownership(sender=ychad)
-
-    assert vesting.admin() == ZERO_ADDRESS
-    assert vesting.future_admin() == ZERO_ADDRESS
+def test_set_open_claim_not_recipient(vesting, ychad):
+    with ape.reverts():  # dev_message="dev: not recipient")
+        vesting.set_open_claim(False, sender=ychad)

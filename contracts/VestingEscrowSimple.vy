@@ -160,7 +160,7 @@ def revoke(ts: uint256 = block.timestamp, beneficiary: address = msg.sender):
     @param beneficiary Recipient of the unvested part.
     """
     owner: address = self.owner
-    assert msg.sender == owner  # dev: owner only
+    assert msg.sender == owner  # dev: not owner
     assert ts >= block.timestamp and ts < self.end_time # dev: no back to the future
 
     self.disabled_at = ts
@@ -180,7 +180,7 @@ def disown():
     @notice Renounce owner control of the escrow
     """
     owner: address = self.owner
-    assert msg.sender == owner  # dev: owner only
+    assert msg.sender == owner  # dev: not owner
     self.owner = empty(address)
 
     log Disowned(owner)

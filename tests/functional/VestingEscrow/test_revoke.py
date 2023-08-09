@@ -2,9 +2,9 @@ import ape
 from ape.utils import ZERO_ADDRESS
 
 
-def test_revoke_owner_only(vesting, receiver):
-    with ape.reverts(): # "dev: owner only"):
-        vesting.revoke(sender=receiver)
+def test_revoke_owner_only(vesting, recipient):
+    with ape.reverts():  # "dev: owner only"):
+        vesting.revoke(sender=recipient)
 
 
 def test_disabled_at_is_initially_end_time(vesting):
@@ -13,35 +13,21 @@ def test_disabled_at_is_initially_end_time(vesting):
 
 def test_revoke(vesting, ychad):
     tx = vesting.revoke(sender=ychad)
-
     assert vesting.disabled_at() == tx.timestamp
 
 
-def test_revoke_after_end_time(
-    chain, vesting, ychad, receiver, token, amount, end_time
-):
-    balance_ychad = token.balanceOf(ychad)
-    chain.pending_timestamp = end_time
-
-    vesting.revoke(sender=ychad)
-    vesting.claim(sender=receiver)
-
-    assert token.balanceOf(receiver) == amount
-    assert token.balanceOf(ychad) == balance_ychad
-
-
-def test_revoke_before_start_time(chain, vesting, ychad, receiver, token, end_time):
+def test_revoke_before_start_time(chain, vesting, ychad, recipient, token, end_time):
     balance_ychad = token.balanceOf(ychad)
     vesting.revoke(sender=ychad)
     chain.pending_timestamp = end_time
-    vesting.claim(sender=receiver)
+    vesting.claim(sender=recipient)
 
-    assert token.balanceOf(receiver) == 0
+    assert token.balanceOf(recipient) == 0
     assert token.balanceOf(ychad) == balance_ychad + vesting.total_locked()
 
 
 def test_revoke_partially_ununclaimed(
-    chain, vesting, ychad, receiver, token, amount, start_time, end_time, cliff_duration
+    chain, vesting, ychad, recipient, token, amount, start_time, end_time, cliff_duration
 ):
     balance_ychad = token.balanceOf(ychad)
     chain.pending_timestamp = start_time + 2 * cliff_duration
@@ -50,10 +36,10 @@ def test_revoke_partially_ununclaimed(
 
     assert token.balanceOf(vesting) == vesting.unclaimed()
 
-    vesting.claim(sender=receiver)
+    vesting.claim(sender=recipient)
 
     expected_amount = amount * (tx.timestamp - start_time) // (end_time - start_time)
-    assert token.balanceOf(receiver) == expected_amount
+    assert token.balanceOf(recipient) == expected_amount
     assert (
         token.balanceOf(ychad)
         == balance_ychad + vesting.total_locked() - expected_amount
@@ -61,36 +47,38 @@ def test_revoke_partially_ununclaimed(
 
 
 def test_revoke_for_cliff(
-    chain, vesting, ychad, receiver, token, start_time, end_time, cliff_duration
+    chain, vesting, ychad, recipient, token, start_time, end_time, cliff_duration
 ):
     balance_ychad = token.balanceOf(ychad)
     chain.pending_timestamp = start_time + cliff_duration // 2
     vesting.revoke(sender=ychad)
 
     chain.pending_timestamp = end_time
-    vesting.claim(sender=receiver)
+    vesting.claim(sender=recipient)
 
-    assert token.balanceOf(receiver) == 0
+    assert token.balanceOf(recipient) == 0
     assert token.balanceOf(ychad) == balance_ychad + vesting.total_locked()
 
 
 def test_revoke_in_past(chain, vesting, ychad):
     ts = chain.pending_timestamp - 1
-    with ape.reverts(): # "dev: no back to the future"):
+    with ape.reverts():  # "dev: no back to the future"):
         vesting.revoke(ts, sender=ychad)
 
 
 def test_revoke_at_end_time(vesting, ychad, end_time):
-    with ape.reverts(): # "dev: no back to the future"):
+    with ape.reverts():  # "dev: no back to the future"):
         vesting.revoke(end_time, sender=ychad)
 
 
-def test_revoke_ts_balance(chain, vesting, ychad, receiver, token, start_time, end_time):
+def test_revoke_ts_balance(
+    chain, vesting, ychad, recipient, token, start_time, end_time
+):
     ts = start_time + (end_time - start_time) // 2
     vesting.revoke(ts, sender=ychad)
 
     chain.pending_timestamp = ts
-    vesting.claim(sender=receiver)
+    vesting.claim(sender=recipient)
 
     assert token.balanceOf(vesting) == 0
 
@@ -104,7 +92,7 @@ def test_revoke_renounce_owner(vesting, ychad, start_time, end_time):
 
 def test_revoke_after_end_time(vesting, ychad, end_time):
     ts = end_time + 1
-    with ape.reverts(): # "dev: no back to the future"):
+    with ape.reverts():  # "dev: no back to the future"):
         vesting.revoke(ts, sender=ychad)
 
 

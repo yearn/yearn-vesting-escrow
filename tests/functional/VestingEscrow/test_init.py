@@ -4,23 +4,23 @@ import ape
 def test_vesting_reinit(
     vesting,
     ychad,
-    receiver,
+    recipient,
     token,
     amount,
     start_time,
     end_time,
     cliff_duration,
+    open_claim,
 ):
-    # same salt reverts
-    with ape.reverts(): # dev_message="dev: can only initialize once"):
+    with ape.reverts():  # dev_message="dev: can only initialize once"):
         vesting.initialize(
             ychad,
             token,
-            receiver,
+            recipient,
             amount,
             start_time,
             end_time,
             cliff_duration,
-            True,
+            open_claim,
             sender=ychad,
         )

@@ -35,17 +35,17 @@ event VestingEscrowCreated:
     open_claim: bool
 
 
-BLUEPRINT: public(immutable(address))
+TARGET: public(immutable(address))
 
 @external
-def __init__(blueprint: address):
+def __init__(target: address):
     """
     @notice Contract constructor
     @dev Prior to deployment you must deploy one copy of `VestingEscrowSimple` which
          is used as a library for vesting contracts deployed by this factory
-    @param blueprint `VestingEscrowSimple` contract address
+    @param target `VestingEscrowSimple` contract address
     """
-    BLUEPRINT = blueprint
+    TARGET = target
 
 
 @external
@@ -73,7 +73,7 @@ def deploy_vesting_contract(
     assert vesting_duration > 0  # dev: duration must be > 0
     assert recipient not in [self, empty(address), token, owner]  # dev: wrong recipient
 
-    escrow: address = create_minimal_proxy_to(BLUEPRINT)
+    escrow: address = create_minimal_proxy_to(TARGET)
 
     VestingEscrowSimple(escrow).initialize(
         owner,
