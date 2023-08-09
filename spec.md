@@ -19,6 +19,7 @@ version 0.3-dev0
         - `owner: address = msg.sender`
             - this party can terminate and clawback the escrow before it fully vests
             - set to `empty(address)` to disable clawback, this can also be done later with `escrow`
+        - `support_vyper: uint256 = 100` in bps
     - constraints
         - `token`, `amount`
             - `token` that doesn't return True on transfer is supported via `default_return_value=True`
@@ -34,11 +35,15 @@ version 0.3-dev0
             - can be zero address
         - `cliff_duration`
             - must not exceed vesting duration
+        - `support_vyper`
+            - check we are on mainnet in case someone deploys the contract on other networks
+            - or ask vyper team to make a new multisig using create2 so they can resurrect it on any network
     - actions
         - create a new vesting escrow using `create_minimal_proxy_to`
         - fund it by transferring tokens from `msg.sender` to the newly created `escrow`
         - `initialize` the `escrow`
         - log the creation parameters in `VestingEscrowCreated` event
+        - if `support_vyper > 0`, transfer additional tokens from `msg.sender` to `vyperlang.eth`
 
 
 ## Vesting Escrow
