@@ -28,6 +28,10 @@ version 0.3-dev0
         - `vesting_start + vesting_duration`
             - end time must be in the future
             - a regular transfer would suit better if it's in the past
+        - `recipient`
+            - must not be zero address
+        - `admin`
+            - can be zero address
         - `cliff_duration`
             - must not exceed vesting duration
     - actions
