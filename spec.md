@@ -75,7 +75,7 @@ version 0.3-dev0
         - `amount: uint256 = max_value(uint256)` optionally claim a fixed amount
     - constraints
         - recipient can claim to any beneficiary
-        - if beneficiary is the recipient and `open_claim` is True, allow anyone to claim
+        - allow anyone to call claim on behalf of receipient if `open_claim` is True
         - the `amount` is limited by the maximum amount claimable
     - actions
         - `total_claimed` is updated
@@ -83,7 +83,7 @@ version 0.3-dev0
         - log `Claim` with beneficiary and claimed amount
     - returns
         - amount claimed
-- `terminate` (previously `rug_pull`)
+- `revoke` (previously `rug_pull`)
     - arguments
         - `time: uint256 = block.timestamp` optionally terminate at a date and clawback lower amount
         - `beneficiary: address` where to send the clawed back amount
@@ -97,16 +97,16 @@ version 0.3-dev0
         - admin is set to `empty(address)`
         - the amount of tokens is determined as tokens still locked at `time`
         - tokens are transferred to `admin`
-        - log `VestingTerminated(self.recipient, self.admin, rugged, time)`
-        - log `SetFree(self.admin)`
-- `set_free` (previously `set_admin`)
+        - log `VestingRevoked(self.recipient, self.admin, amount, time)`
+        - log `VestingDisowned(self.admin)`
+- `disown` (previously `set_admin`)
     - arguments
         - none
     - constraints
         - can only be called by `admin`
     - actions
         - set admin to `empty(address)`
-        - log `SetFree(self.admin)`
+        - log `VestingDisowned(self.admin)`
 - `collect_dust`
     - arguments
         - `token: address` dust token to claim
