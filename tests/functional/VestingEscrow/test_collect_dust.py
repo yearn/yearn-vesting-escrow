@@ -28,6 +28,23 @@ def test_collect_dust_some_vested_token(
     assert token.balanceOf(receiver) == amount
 
 
+def test_collect_dust_some_vested_token_and_claimed(
+    chain, vesting, ychad, receiver, token, amount, start_time, end_time
+):
+    token.transfer(vesting, amount, sender=ychad)
+    chain.pending_timestamp += (end_time - start_time) // 2
+    receipt = vesting.claim(sender=receiver)
+    claimed_amount = receipt.return_value
+
+    receipt = vesting.collect_dust(token, sender=receiver)
+
+    transfers = token.Transfer.from_receipt(receipt)
+    assert len(transfers) == 1
+    assert transfers[0] == token.Transfer(vesting, receiver, amount)
+
+    assert token.balanceOf(receiver) == amount + claimed_amount
+
+
 def test_collect_dust_beneficiary(
     vesting, ychad, receiver, cold_storage, another_token, another_amount
 ):

@@ -138,7 +138,7 @@ def claim(beneficiary: address = msg.sender, amount: uint256 = max_value(uint256
     @param amount Amount of tokens to claim
     """
     recipient: address = self.recipient
-    assert msg.sender == recipient or (self.open_claim and recipient == beneficiary)  # dev: not authorized
+    assert msg.sender == recipient or self.open_claim and recipient == beneficiary  # dev: not authorized
 
     claim_period_end: uint256 = min(block.timestamp, self.disabled_at)
     claimable: uint256 = min(self._unclaimed(claim_period_end), amount)
@@ -195,13 +195,12 @@ def set_open_claim(open_claim: bool):
 
 
 @external
-def collect_dust(token: address, beneficiary: address = msg.sender):
+def collect_dust(token: ERC20, beneficiary: address = msg.sender):
     recipient: address = self.recipient
-    assert msg.sender == recipient or (self.open_claim and recipient == beneficiary) # dev: not authorized
+    assert msg.sender == recipient or self.open_claim and recipient == beneficiary # dev: not authorized
 
-    # amount: uint256 = ERC20(token).balanceOf(self)
-    # if token == self.token.address:
-    #     amount = self.total_locked - self.total_claimed
-    amount: uint256 = ERC20(token).balanceOf(self) if token != self.token.address else self.total_locked - self.total_claimed
+    amount: uint256 = token.balanceOf(self)
+    if token == self.token:
+        amount = amount + self.total_claimed - self.total_locked
 
-    assert ERC20(token).transfer(beneficiary, amount, default_return_value=True)
+    assert token.transfer(beneficiary, amount, default_return_value=True)
