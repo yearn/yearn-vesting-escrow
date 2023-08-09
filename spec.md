@@ -103,8 +103,8 @@ version 0.3-dev0
         - owner is set to `empty(address)`
         - the amount of tokens is determined as tokens still locked at `time`
         - tokens are transferred to `owner`
-        - log `VestingRevoked(owner, beneficiary, amount, time)`
-        - log `VestingDisowned(owner)`
+        - log `Revoked(owner, beneficiary, amount, time)`
+        - log `Disowned(owner)`
 - `disown` (previously `set_owner`)
     - arguments
         - none
@@ -112,7 +112,7 @@ version 0.3-dev0
         - can only be called by `owner`
     - actions
         - set owner to `empty(address)`
-        - log `VestingDisowned(owner)`
+        - log `Disowned(owner)`
 - `collect_dust`
     - arguments
         - `token: address` dust token to claim
