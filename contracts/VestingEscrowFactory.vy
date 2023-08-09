@@ -11,7 +11,7 @@ from vyper.interfaces import ERC20
 
 interface VestingEscrowSimple:
     def initialize(
-        admin: address,
+        owner: address,
         token: address,
         recipient: address,
         amount: uint256,
@@ -57,7 +57,7 @@ def deploy_vesting_contract(
     vesting_start: uint256 = block.timestamp,
     cliff_length: uint256 = 0,
     open_claim: bool = True,
-    admin: address = msg.sender,
+    owner: address = msg.sender,
 ) -> address:
     """
     @notice Deploy a new vesting contract
@@ -71,12 +71,12 @@ def deploy_vesting_contract(
     assert cliff_length <= vesting_duration  # dev: incorrect vesting cliff
     assert vesting_start + vesting_duration > block.timestamp  # dev: just use a transfer, dummy
     assert vesting_duration > 0  # dev: duration must be > 0
-    assert recipient not in [self, empty(address), token, admin]  # dev: wrong recipient
+    assert recipient not in [self, empty(address), token, owner]  # dev: wrong recipient
 
     escrow: address = create_minimal_proxy_to(BLUEPRINT)
 
     VestingEscrowSimple(escrow).initialize(
-        admin,
+        owner,
         token,
         recipient,
         amount,

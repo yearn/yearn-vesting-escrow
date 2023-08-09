@@ -14,14 +14,14 @@ event Claim:
     recipient: indexed(address)
     claimed: uint256
 
-event VestingTerminated:
+event Revoked:
     recipient: address
-    admin: address
+    owner: address
     rugged: uint256
     ts: uint256
 
-event SetFree:
-    admin: address
+event Disowned:
+    owner: address
 
 event SetOpenClaim:
     state: bool
@@ -38,7 +38,7 @@ disabled_at: public(uint256)
 open_claim: public(bool)
 initialized: public(bool)
 
-admin: public(address)
+owner: public(address)
 
 @external
 def __init__():
@@ -48,7 +48,7 @@ def __init__():
 
 @external
 def initialize(
-    admin: address,
+    owner: address,
     token: address,
     recipient: address,
     amount: uint256,
@@ -62,7 +62,7 @@ def initialize(
     @dev This function is seperate from `__init__` because of the factory pattern
          used in `VestingEscrowFactory.deploy_vesting_contract`. It may be called
          once per deployment.
-    @param admin Admin address
+    @param owner Owner address
     @param token Address of the ERC20 token being distributed
     @param recipient Address to vest tokens for
     @param amount Amount of tokens being vested for `recipient`
@@ -74,7 +74,7 @@ def initialize(
     self.initialized = True
 
     self.token = ERC20(token)
-    self.admin = admin
+    self.owner = owner
     self.start_time = start_time
     self.end_time = end_time
     self.cliff_length = cliff_length
@@ -110,7 +110,7 @@ def unclaimed() -> uint256:
     """
     @notice Get the number of unclaimed, vested tokens for recipient
     """
-    # NOTE: if `terminate` is activated, limit by the activation timestamp
+    # NOTE: if `disown` is activated, limit by the activation timestamp
     return self._unclaimed(min(block.timestamp, self.disabled_at))
 
 
@@ -126,7 +126,7 @@ def locked() -> uint256:
     """
     @notice Get the number of locked tokens for recipient
     """
-    # NOTE: if `terminate` is activated, limit by the activation timestamp
+    # NOTE: if `disown` is activated, limit by the activation timestamp
     return self._locked(min(block.timestamp, self.disabled_at))
 
 
@@ -151,16 +151,16 @@ def claim(beneficiary: address = msg.sender, amount: uint256 = max_value(uint256
 
 
 @external
-def terminate(ts: uint256 = block.timestamp, beneficiary: address = msg.sender):
+def revoke(ts: uint256 = block.timestamp, beneficiary: address = msg.sender):
     """
     @notice Disable further flow of tokens and clawback the unvested part to `beneficiary`.
         Rugging more than once is futile.
-    @dev Admin is set to zero address.
+    @dev Owner is set to zero address.
     @param ts Timestamp of the clawback.
     @param beneficiary Recipient of the unvested part.
     """
-    admin: address = self.admin
-    assert msg.sender == admin  # dev: admin only
+    owner: address = self.owner
+    assert msg.sender == owner  # dev: owner only
     assert ts >= block.timestamp and ts < self.end_time # dev: no back to the future
 
     self.disabled_at = ts
@@ -168,22 +168,22 @@ def terminate(ts: uint256 = block.timestamp, beneficiary: address = msg.sender):
 
     assert self.token.transfer(beneficiary, ruggable, default_return_value=True)
 
-    self.admin = empty(address)
+    self.owner = empty(address)
 
-    log SetFree(admin)
-    log VestingTerminated(self.recipient, admin, ruggable, ts)
+    log Disowned(owner)
+    log Revoked(self.recipient, owner, ruggable, ts)
 
 
 @external
-def set_free():
+def disown():
     """
-    @notice Renounce admin control of the escrow
+    @notice Renounce owner control of the escrow
     """
-    admin: address = self.admin
-    assert msg.sender == admin  # dev: admin only
-    self.admin = empty(address)
+    owner: address = self.owner
+    assert msg.sender == owner  # dev: owner only
+    self.owner = empty(address)
 
-    log SetFree(admin)
+    log Disowned(owner)
 
 
 @external

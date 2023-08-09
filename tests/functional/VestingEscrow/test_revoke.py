@@ -2,37 +2,37 @@ import ape
 from ape.utils import ZERO_ADDRESS
 
 
-def test_terminate_admin_only(vesting, receiver):
-    with ape.reverts(): # "dev: admin only"):
-        vesting.terminate(sender=receiver)
+def test_revoke_owner_only(vesting, receiver):
+    with ape.reverts(): # "dev: owner only"):
+        vesting.revoke(sender=receiver)
 
 
 def test_disabled_at_is_initially_end_time(vesting):
     assert vesting.disabled_at() == vesting.end_time()
 
 
-def test_terminate(vesting, ychad):
-    tx = vesting.terminate(sender=ychad)
+def test_revoke(vesting, ychad):
+    tx = vesting.revoke(sender=ychad)
 
     assert vesting.disabled_at() == tx.timestamp
 
 
-def test_terminate_after_end_time(
+def test_revoke_after_end_time(
     chain, vesting, ychad, receiver, token, amount, end_time
 ):
     balance_ychad = token.balanceOf(ychad)
     chain.pending_timestamp = end_time
 
-    vesting.terminate(sender=ychad)
+    vesting.revoke(sender=ychad)
     vesting.claim(sender=receiver)
 
     assert token.balanceOf(receiver) == amount
     assert token.balanceOf(ychad) == balance_ychad
 
 
-def test_terminate_before_start_time(chain, vesting, ychad, receiver, token, end_time):
+def test_revoke_before_start_time(chain, vesting, ychad, receiver, token, end_time):
     balance_ychad = token.balanceOf(ychad)
-    vesting.terminate(sender=ychad)
+    vesting.revoke(sender=ychad)
     chain.pending_timestamp = end_time
     vesting.claim(sender=receiver)
 
@@ -40,12 +40,12 @@ def test_terminate_before_start_time(chain, vesting, ychad, receiver, token, end
     assert token.balanceOf(ychad) == balance_ychad + vesting.total_locked()
 
 
-def test_terminate_partially_ununclaimed(
+def test_revoke_partially_ununclaimed(
     chain, vesting, ychad, receiver, token, amount, start_time, end_time, cliff_duration
 ):
     balance_ychad = token.balanceOf(ychad)
     chain.pending_timestamp = start_time + 2 * cliff_duration
-    tx = vesting.terminate(sender=ychad)
+    tx = vesting.revoke(sender=ychad)
     chain.pending_timestamp = end_time
 
     assert token.balanceOf(vesting) == vesting.unclaimed()
@@ -60,12 +60,12 @@ def test_terminate_partially_ununclaimed(
     )
 
 
-def test_terminate_for_cliff(
+def test_revoke_for_cliff(
     chain, vesting, ychad, receiver, token, start_time, end_time, cliff_duration
 ):
     balance_ychad = token.balanceOf(ychad)
     chain.pending_timestamp = start_time + cliff_duration // 2
-    vesting.terminate(sender=ychad)
+    vesting.revoke(sender=ychad)
 
     chain.pending_timestamp = end_time
     vesting.claim(sender=receiver)
@@ -74,20 +74,20 @@ def test_terminate_for_cliff(
     assert token.balanceOf(ychad) == balance_ychad + vesting.total_locked()
 
 
-def test_terminate_in_past(chain, vesting, ychad):
+def test_revoke_in_past(chain, vesting, ychad):
     ts = chain.pending_timestamp - 1
     with ape.reverts(): # "dev: no back to the future"):
-        vesting.terminate(ts, sender=ychad)
+        vesting.revoke(ts, sender=ychad)
 
 
-def test_terminate_at_end_time(vesting, ychad, end_time):
+def test_revoke_at_end_time(vesting, ychad, end_time):
     with ape.reverts(): # "dev: no back to the future"):
-        vesting.terminate(end_time, sender=ychad)
+        vesting.revoke(end_time, sender=ychad)
 
 
-def test_terminate_ts_balance(chain, vesting, ychad, receiver, token, start_time, end_time):
+def test_revoke_ts_balance(chain, vesting, ychad, receiver, token, start_time, end_time):
     ts = start_time + (end_time - start_time) // 2
-    vesting.terminate(ts, sender=ychad)
+    vesting.revoke(ts, sender=ychad)
 
     chain.pending_timestamp = ts
     vesting.claim(sender=receiver)
@@ -95,18 +95,18 @@ def test_terminate_ts_balance(chain, vesting, ychad, receiver, token, start_time
     assert token.balanceOf(vesting) == 0
 
 
-def test_terminate_renounce_admin(vesting, ychad, start_time, end_time):
+def test_revoke_renounce_owner(vesting, ychad, start_time, end_time):
     ts = start_time + (end_time - start_time) // 2
-    vesting.terminate(ts, sender=ychad)
+    vesting.revoke(ts, sender=ychad)
 
-    assert vesting.admin() == ZERO_ADDRESS
+    assert vesting.owner() == ZERO_ADDRESS
 
 
-def test_terminate_after_end_time(vesting, ychad, end_time):
+def test_revoke_after_end_time(vesting, ychad, end_time):
     ts = end_time + 1
     with ape.reverts(): # "dev: no back to the future"):
-        vesting.terminate(ts, sender=ychad)
+        vesting.revoke(ts, sender=ychad)
 
 
-def test_terminate_beneficiary():
+def test_revoke_beneficiary():
     pass

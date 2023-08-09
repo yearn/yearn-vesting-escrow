@@ -65,7 +65,7 @@ def test_init_variables(
     vesting_escrow = project.VestingEscrowSimple.at(receipt.return_value)
 
     assert vesting_escrow.token() == token
-    assert vesting_escrow.admin() == ychad
+    assert vesting_escrow.owner() == ychad
     assert vesting_escrow.recipient() == receiver
     assert vesting_escrow.start_time() == start_time
     assert vesting_escrow.end_time() == start_time + duration
