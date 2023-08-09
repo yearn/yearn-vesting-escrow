@@ -1,4 +1,5 @@
 import ape
+from ape.utils import ZERO_ADDRESS
 
 
 def test_approve_fail(vesting_factory, ychad, receiver, token, amount, duration):
@@ -95,3 +96,57 @@ def test_token_events(
 
     assert len(approval) == 1
     assert approval[0] == token.Approval(ychad, vesting_factory, 0)
+
+
+def test_vesting_duration(
+    vesting_factory,
+    ychad,
+    receiver,
+    token,
+    amount,
+    start_time,
+    cliff_duration,
+):
+    token.approve(vesting_factory, amount, sender=ychad)
+    with ape.reverts(): # dev_message="dev: duration must be > 0")
+        vesting_factory.deploy_vesting_contract(
+            token, receiver, amount, 0, start_time, cliff_duration, sender=ychad
+        )
+
+
+def test_wrong_recipient(
+    vesting_factory,
+    ychad,
+    token,
+    amount,
+    start_time,
+    duration,
+    cliff_duration,
+):
+    token.approve(vesting_factory, amount, sender=ychad)
+
+    for wrong_recipient in [vesting_factory, ZERO_ADDRESS, token, ychad]:
+        with ape.reverts(): # dev_message="dev: wrong recipient"):
+            vesting_factory.deploy_vesting_contract(
+                token, wrong_recipient, amount, duration, start_time, cliff_duration, sender=ychad
+            )
+
+
+def test_use_transfer(
+    chain,
+    vesting_factory,
+    ychad,
+    receiver,
+    token,
+    amount,
+    start_time,
+    duration,
+    cliff_duration,
+):
+    token.approve(vesting_factory, amount, sender=ychad)
+    chain.pending_timestamp += start_time + duration
+
+    with ape.reverts(): # dev_message="dev: just use a transfer, dummy")
+        vesting_factory.deploy_vesting_contract(
+            token, receiver, amount, duration, start_time, cliff_duration, sender=ychad
+        )

@@ -69,7 +69,9 @@ def deploy_vesting_contract(
     @param open_claim Anyone can claim for `recipient`
     """
     assert cliff_length <= vesting_duration  # dev: incorrect vesting cliff
-    assert vesting_duration > 0 # dev: duration must be > 0
+    assert vesting_start + vesting_duration > block.timestamp  # dev: just use a transfer, dummy
+    assert vesting_duration > 0  # dev: duration must be > 0
+    assert recipient not in [self, empty(address), token, admin]  # dev: wrong recipient
 
     escrow: address = create_minimal_proxy_to(BLUEPRINT)
 
