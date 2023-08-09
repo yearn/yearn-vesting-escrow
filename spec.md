@@ -25,8 +25,9 @@ version 0.3-dev0
             - implicitly checked by `token` transfer
                 - the funder must have a `token` balance of at least `amount`
                 - the factory must have a `token` allowance of at least `amount`
-        - `vesting_start`
-            - can be in the past
+        - `vesting_start + vesting_duration`
+            - end time must be in the future
+            - a regular transfer would suit better if it's in the past
         - `cliff_duration`
             - must not exceed vesting duration
     - actions
@@ -114,4 +115,6 @@ version 0.3-dev0
     - actions
         - send tokens to the beneficiary
 - `unclaimed`
+    - TODO: @milkyklim add formulas. make sure the view covers any range and is not reverting
 - `locked`
+    - TODO: @milkyklim add formulas. make sure the view covers any range and is not reverting
