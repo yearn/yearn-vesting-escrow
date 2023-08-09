@@ -118,7 +118,3 @@ version 0.3-dev0
         - for all other tokens, the full balance is sent
     - actions
         - send tokens to the beneficiary
-- `unclaimed`
-    - TODO: @milkyklim add formulas. make sure the view covers any range and is not reverting
-- `locked`
-    - TODO: @milkyklim add formulas. make sure the view covers any range and is not reverting
