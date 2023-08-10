@@ -4,6 +4,7 @@ from vyper.interfaces import ERC20
 
 implements: ERC20
 
+
 event Transfer:
     sender: indexed(address)
     receiver: indexed(address)
@@ -18,12 +19,6 @@ event Approval:
 balanceOf: public(HashMap[address, uint256])
 allowance: public(HashMap[address, HashMap[address, uint256]])
 totalSupply: public(uint256)
-minter: address
-
-
-@external
-def __init__():
-    self.minter = msg.sender
 
 
 @external
@@ -49,7 +44,6 @@ def approve(spender: address, amount: uint256):
 
 @external
 def mint(receiver: address, amount: uint256):
-    assert msg.sender == self.minter
     assert receiver != empty(address)
     self.totalSupply += amount
     self.balanceOf[receiver] += amount
