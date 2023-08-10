@@ -4,7 +4,12 @@ version 0.3-dev0
 
 ## Vesting Factory
 
-- the factory is initialized with a template contract of `Vesting Escrow`
+- `__init__`
+    - arguments
+        - `template: address` vesting escrow template
+        - `vyper_donate: address` vyper safe for donations (vyperlang.eth on mainnet)
+    - actions
+        - save both as immutables
 - `deploy_vesting_escrow`
     - arguments
         - `token: address` ERC20 funding token
