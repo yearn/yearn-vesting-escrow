@@ -8,6 +8,9 @@ on:
     - level-up
   pull_request:
 
+env:
+  WEB3_PROVIDER_URI: ${{ secrets.WEB3_PROVIDER_URI }}
+
 concurrency:
   # Cancel older, in-progress jobs from the same PR, same workflow.
   # use run_id if the job is triggered by a push to ensure
@@ -28,8 +31,6 @@ jobs:
       - run: ape tokens install https://tokens.coingecko.com/uniswap/all.json
       - run: ape compile --size
       - run: ape test tests/functional/ --gas --coverage
-        env:
-          WEB3_PROVIDER_URI: ${{ secrets.WEB3_PROVIDER_URI }}
 
 
   integration:
