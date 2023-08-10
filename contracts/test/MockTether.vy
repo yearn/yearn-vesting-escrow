@@ -1,5 +1,5 @@
 # @version 0.3.9
-# @dev token with a missing reutrn value
+# @dev token with a missing return value
 from vyper.interfaces import ERC20
 
 implements: ERC20
