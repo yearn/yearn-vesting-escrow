@@ -1,4 +1,5 @@
 # @version 0.3.9
+
 """
 @title Simple Vesting Escrow
 @author Curve Finance, Yearn Finance
@@ -14,14 +15,17 @@ event Claim:
     recipient: indexed(address)
     claimed: uint256
 
+
 event Revoked:
     recipient: address
     owner: address
     rugged: uint256
     ts: uint256
 
+
 event Disowned:
     owner: address
+
 
 event SetOpenClaim:
     state: bool
@@ -39,6 +43,7 @@ open_claim: public(bool)
 initialized: public(bool)
 
 owner: public(address)
+
 
 @external
 def __init__():
@@ -117,7 +122,10 @@ def unclaimed() -> uint256:
 @internal
 @view
 def _locked(time: uint256 = block.timestamp) -> uint256:
-    return min(self.token.balanceOf(self) - self._unclaimed(time), self.total_locked - self._total_vested_at(time))
+    return min(
+        self.token.balanceOf(self) - self._unclaimed(time),
+        self.total_locked - self._total_vested_at(time),
+    )
 
 
 @external
@@ -138,7 +146,7 @@ def claim(beneficiary: address = msg.sender, amount: uint256 = max_value(uint256
     @param amount Amount of tokens to claim
     """
     recipient: address = self.recipient
-    assert msg.sender == recipient or self.open_claim and recipient == beneficiary  # dev: not authorized
+    assert (msg.sender == recipient or self.open_claim and recipient == beneficiary)  # dev: not authorized
 
     claim_period_end: uint256 = min(block.timestamp, self.disabled_at)
     claimable: uint256 = min(self._unclaimed(claim_period_end), amount)
@@ -161,7 +169,7 @@ def revoke(ts: uint256 = block.timestamp, beneficiary: address = msg.sender):
     """
     owner: address = self.owner
     assert msg.sender == owner  # dev: not owner
-    assert ts >= block.timestamp and ts < self.end_time # dev: no back to the future
+    assert ts >= block.timestamp and ts < self.end_time  # dev: no back to the future
 
     self.disabled_at = ts
     ruggable: uint256 = self._locked(ts)
@@ -197,7 +205,7 @@ def set_open_claim(open_claim: bool):
 @external
 def collect_dust(token: ERC20, beneficiary: address = msg.sender):
     recipient: address = self.recipient
-    assert msg.sender == recipient or self.open_claim and recipient == beneficiary # dev: not authorized
+    assert msg.sender == recipient or self.open_claim and recipient == beneficiary  # dev: not authorized
 
     amount: uint256 = token.balanceOf(self)
     if token == self.token:

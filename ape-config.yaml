@@ -2,7 +2,6 @@ name: yearn-vesting-escrow
 
 plugins:
   - name: ens
-  - name: ethereum
   - name: foundry
   - name: tokens
   - name: vyper
@@ -19,3 +18,13 @@ geth:
   ethereum:
     mainnet:
       uri: ${WEB3_PROVIDER_URI}
+
+test:
+  coverage:
+    exclude:
+      - contract_name: "ERC20*"
+    reports:
+      xml: True
+      html: True  # Enable HTML report (.build/htmlcov)
+      terminal:
+        verbose: true  # Show verbose coverage information in the terminal.

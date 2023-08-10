@@ -1,4 +1,5 @@
 # @version 0.3.9
+
 """
 @title Vesting Escrow Factory
 @author Curve Finance, Yearn Finance
@@ -22,7 +23,6 @@ interface VestingEscrowSimple:
     ) -> bool: nonpayable
 
 
-
 event VestingEscrowCreated:
     funder: indexed(address)
     token: indexed(address)
@@ -36,6 +36,7 @@ event VestingEscrowCreated:
 
 
 TARGET: public(immutable(address))
+
 
 @external
 def __init__(target: address):
@@ -86,7 +87,17 @@ def deploy_vesting_contract(
         open_claim,
     )
     # skip transferFrom and approve and send directly to escrow
-    assert ERC20(token).transferFrom(msg.sender, escrow, amount, default_return_value=True) # dev: funding failed
+    assert ERC20(token).transferFrom(msg.sender, escrow, amount, default_return_value=True)  # dev: funding failed
 
-    log VestingEscrowCreated(msg.sender, token, recipient, escrow, amount, vesting_start, vesting_duration, cliff_length, open_claim)
+    log VestingEscrowCreated(
+        msg.sender,
+        token,
+        recipient,
+        escrow,
+        amount,
+        vesting_start,
+        vesting_duration,
+        cliff_length,
+        open_claim,
+    )
     return escrow
