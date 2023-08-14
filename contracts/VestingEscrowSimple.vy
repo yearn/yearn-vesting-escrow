@@ -54,7 +54,7 @@ def __init__():
 @external
 def initialize(
     owner: address,
-    token: address,
+    token: ERC20,
     recipient: address,
     amount: uint256,
     start_time: uint256,
@@ -78,7 +78,7 @@ def initialize(
     assert not self.initialized  # dev: can only initialize once
     self.initialized = True
 
-    self.token = ERC20(token)
+    self.token = token
     self.owner = owner
     self.start_time = start_time
     self.end_time = end_time
