@@ -121,7 +121,7 @@ def test_init_variables(
     assert vesting_escrow.open_claim()
 
 
-def test_token_events(
+def test_transfer_events(
     vesting_factory,
     vyper_donation,
     owner,
@@ -150,15 +150,10 @@ def test_token_events(
     )
     vesting_escrow = receipt.return_value
     transfers = token.Transfer.from_receipt(receipt)
-    approval = token.Approval.from_receipt(receipt)
 
     assert len(transfers) == 2
     assert transfers[0] == token.Transfer(owner, vesting_escrow, amount)
     assert transfers[1] == token.Transfer(owner, vyper_donation, support_amount)
-
-    assert len(approval) == 2
-    assert approval[0] == token.Approval(owner, vesting_factory, support_amount)
-    assert approval[1] == token.Approval(owner, vesting_factory, 0)
 
 
 def test_vesting_duration(

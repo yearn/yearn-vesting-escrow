@@ -11,7 +11,7 @@ ethereum:
 test:
   coverage:
     exclude:
-      - contract_name: "ERC20*"
+      - contract_name: "Mock*"
     reports:
       xml: True
       html: True  # Enable HTML report (.build/htmlcov)
