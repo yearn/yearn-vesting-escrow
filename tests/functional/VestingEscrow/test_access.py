@@ -2,11 +2,11 @@ import ape
 from ape.utils import ZERO_ADDRESS
 
 
-def test_disown(vesting, ychad):
-    receipt = vesting.disown(sender=ychad)
+def test_disown(vesting, owner):
+    receipt = vesting.disown(sender=owner)
     disowned = vesting.Disowned.from_receipt(receipt)[0]
 
-    assert disowned == vesting.Disowned(ychad)
+    assert disowned == vesting.Disowned(owner)
     assert vesting.owner() == ZERO_ADDRESS
 
 
@@ -28,6 +28,6 @@ def test_set_open_claim(vesting, recipient):
     assert vesting.SetOpenClaim() == open_claim
 
 
-def test_set_open_claim_not_recipient(vesting, ychad):
+def test_set_open_claim_not_recipient(vesting, owner):
     with ape.reverts():  # dev_message="dev: not recipient")
-        vesting.set_open_claim(False, sender=ychad)
+        vesting.set_open_claim(False, sender=owner)

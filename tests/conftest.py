@@ -11,33 +11,28 @@ def duration():
 
 
 @pytest.fixture(scope="session")
-def ychad(accounts):
-    return accounts[ape.convert("ychad.eth", AddressType)]
-
-
-@pytest.fixture(scope="session")
-def ytrades(accounts):
-    return accounts[ape.convert("ytrades.ychad.eth", AddressType)]
+def owner(accounts):
+    return accounts[0]
 
 
 @pytest.fixture(scope="session")
 def recipient(accounts):
-    yield accounts["0x0000000000000000000000000000000000031337"]
+    yield accounts[1]
 
 
 @pytest.fixture(scope="session")
 def cold_storage(accounts):
-    yield accounts["0x000000000000000000000000000000000000C001"]
+    yield accounts[2]
 
 
 @pytest.fixture(scope="module")
-def token(project, ychad):
-    yield ychad.deploy(project.MockToken)
+def token(project, owner):
+    yield owner.deploy(project.MockToken)
 
 
 @pytest.fixture(scope="module")
-def another_token(project, ychad):
-    return ychad.deploy(project.MockToken)
+def another_token(project, owner):
+    return owner.deploy(project.MockToken)
 
 
 @pytest.fixture(scope="module")
@@ -56,19 +51,19 @@ def cliff_duration(duration):
 
 
 @pytest.fixture(scope="module")
-def vesting_target(project, ychad):
-    yield ychad.deploy(project.VestingEscrowSimple)
+def vesting_target(project, owner):
+    yield owner.deploy(project.VestingEscrowSimple)
 
 
 @pytest.fixture(scope="module")
 def vyper_donation(accounts):
-    # 0x70CCBE10F980d80b7eBaab7D2E3A73e87D67B775
-    yield accounts[ape.convert("vyperlang.eth", AddressType)]
+    # vyperlang.eth
+    yield accounts["0x70CCBE10F980d80b7eBaab7D2E3A73e87D67B775"]
 
 
 @pytest.fixture(scope="module")
-def vesting_factory(project, ychad, vesting_target, vyper_donation):
-    yield ychad.deploy(project.VestingEscrowFactory, vesting_target, vyper_donation)
+def vesting_factory(project, owner, vesting_target, vyper_donation):
+    yield owner.deploy(project.VestingEscrowFactory, vesting_target, vyper_donation)
 
 
 @pytest.fixture(scope="module")
@@ -99,7 +94,7 @@ def support_amount(amount, support_vyper):
 @pytest.fixture(scope="module")
 def vesting(
     project,
-    ychad,
+    owner,
     recipient,
     vesting_factory,
     token,
@@ -113,10 +108,10 @@ def vesting(
     duration,
     support_vyper,
 ):
-    token.mint(ychad, amount + support_amount, sender=ychad)
-    another_token.mint(ychad, another_amount, sender=ychad)
+    token.mint(owner, amount + support_amount, sender=owner)
+    another_token.mint(owner, another_amount, sender=owner)
 
-    token.approve(vesting_factory, amount + support_amount, sender=ychad)
+    token.approve(vesting_factory, amount + support_amount, sender=owner)
     receipt = vesting_factory.deploy_vesting_contract(
         token,
         recipient,
@@ -126,7 +121,7 @@ def vesting(
         cliff_duration,
         open_claim,
         support_vyper,
-        sender=ychad,
+        sender=owner,
     )
     escrow = vesting_factory.VestingEscrowCreated.from_receipt(receipt)[0]
     yield project.VestingEscrowSimple.at(escrow.escrow)

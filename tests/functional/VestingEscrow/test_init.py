@@ -3,7 +3,7 @@ import ape
 
 def test_vesting_reinit(
     vesting,
-    ychad,
+    owner,
     recipient,
     token,
     amount,
@@ -14,7 +14,7 @@ def test_vesting_reinit(
 ):
     with ape.reverts():  # dev_message="dev: can only initialize once"):
         vesting.initialize(
-            ychad,
+            owner,
             token,
             recipient,
             amount,
@@ -22,5 +22,5 @@ def test_vesting_reinit(
             end_time,
             cliff_duration,
             open_claim,
-            sender=ychad,
+            sender=owner,
         )

@@ -23,18 +23,18 @@ def test_claim_beneficiary(chain, vesting, recipient, cold_storage, token, amoun
     assert token.balanceOf(cold_storage) == amount
 
 
-def test_claim_recepient_beneficiary(chain, vesting, ychad, recipient, token, amount, end_time):
+def test_claim_recepient_beneficiary(chain, vesting, owner, recipient, token, amount, end_time):
     chain.pending_timestamp = end_time
-    vesting.claim(recipient, sender=ychad)
+    vesting.claim(recipient, sender=owner)
 
     assert token.balanceOf(recipient) == amount
 
 
-def test_claim_not_open(chain, vesting, ychad, recipient, end_time):
+def test_claim_not_open(chain, vesting, owner, recipient, end_time):
     vesting.set_open_claim(False, sender=recipient)
     chain.pending_timestamp = end_time
     with ape.reverts():  # dev_message="dev: not authorized"):
-        vesting.claim(recipient, sender=ychad)
+        vesting.claim(recipient, sender=owner)
 
 
 def test_claim_before_start(chain, vesting, recipient, token, start_time):

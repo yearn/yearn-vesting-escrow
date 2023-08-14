@@ -1,4 +1,4 @@
-def test_locked_unclaimed(chain, vesting, end_time):
+def test_locked_unclaimed(chain, accounts, vesting, end_time):
     assert vesting.locked() == vesting.total_locked()
     assert vesting.unclaimed() == 0
 
@@ -8,5 +8,5 @@ def test_locked_unclaimed(chain, vesting, end_time):
     assert vesting.locked() == 0
     assert vesting.unclaimed() == vesting.total_locked()
 
-    vesting.claim(sender=vesting.recipient())
+    vesting.claim(sender=accounts[vesting.recipient()])
     assert vesting.unclaimed() == 0

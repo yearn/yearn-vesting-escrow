@@ -4,7 +4,7 @@ from ape.utils import ZERO_ADDRESS
 
 def test_approve_fail(
     vesting_factory,
-    ychad,
+    owner,
     recipient,
     token,
     amount,
@@ -24,8 +24,8 @@ def test_approve_fail(
             cliff_duration,
             open_claim,
             support_vyper,
-            ychad,
-            sender=ychad,
+            owner,
+            sender=owner,
         )
 
 
@@ -39,7 +39,7 @@ def test_vyper_is_set(vesting_factory, vyper_donation):
 
 def test_deploy(
     vesting_factory,
-    ychad,
+    owner,
     recipient,
     token,
     amount,
@@ -50,8 +50,8 @@ def test_deploy(
     open_claim,
     support_vyper,
 ):
-    token.mint(ychad, amount + support_amount, sender=ychad)
-    token.approve(vesting_factory, amount + support_amount, sender=ychad)
+    token.mint(owner, amount + support_amount, sender=owner)
+    token.approve(vesting_factory, amount + support_amount, sender=owner)
     receipt = vesting_factory.deploy_vesting_contract(
         token,
         recipient,
@@ -61,8 +61,8 @@ def test_deploy(
         cliff_duration,
         open_claim,
         support_vyper,
-        ychad,
-        sender=ychad,
+        owner,
+        sender=owner,
     )
 
     vesting_escrow_address = receipt.return_value
@@ -70,7 +70,7 @@ def test_deploy(
 
     assert len(vesting_escrows) == 1
     assert vesting_escrows[0] == vesting_factory.VestingEscrowCreated(
-        ychad,
+        owner,
         token,
         recipient,
         vesting_escrow_address,
@@ -85,7 +85,7 @@ def test_deploy(
 def test_init_variables(
     project,
     vesting_factory,
-    ychad,
+    owner,
     recipient,
     token,
     amount,
@@ -96,8 +96,8 @@ def test_init_variables(
     open_claim,
     support_vyper,
 ):
-    token.mint(ychad, amount + support_amount, sender=ychad)
-    token.approve(vesting_factory, amount + support_amount, sender=ychad)
+    token.mint(owner, amount + support_amount, sender=owner)
+    token.approve(vesting_factory, amount + support_amount, sender=owner)
     receipt = vesting_factory.deploy_vesting_contract(
         token,
         recipient,
@@ -107,13 +107,13 @@ def test_init_variables(
         cliff_duration,
         open_claim,
         support_vyper,
-        sender=ychad,
+        sender=owner,
     )
 
     vesting_escrow = project.VestingEscrowSimple.at(receipt.return_value)
 
     assert vesting_escrow.token() == token
-    assert vesting_escrow.owner() == ychad
+    assert vesting_escrow.owner() == owner
     assert vesting_escrow.recipient() == recipient
     assert vesting_escrow.start_time() == start_time
     assert vesting_escrow.end_time() == start_time + duration
@@ -124,7 +124,7 @@ def test_init_variables(
 def test_token_events(
     vesting_factory,
     vyper_donation,
-    ychad,
+    owner,
     recipient,
     token,
     amount,
@@ -135,8 +135,8 @@ def test_token_events(
     open_claim,
     support_vyper,
 ):
-    token.mint(ychad, amount + support_amount, sender=ychad)
-    token.approve(vesting_factory, amount + support_amount, sender=ychad)
+    token.mint(owner, amount + support_amount, sender=owner)
+    token.approve(vesting_factory, amount + support_amount, sender=owner)
     receipt = vesting_factory.deploy_vesting_contract(
         token,
         recipient,
@@ -146,24 +146,24 @@ def test_token_events(
         cliff_duration,
         open_claim,
         support_vyper,
-        sender=ychad,
+        sender=owner,
     )
     vesting_escrow = receipt.return_value
     transfers = token.Transfer.from_receipt(receipt)
     approval = token.Approval.from_receipt(receipt)
 
     assert len(transfers) == 2
-    assert transfers[0] == token.Transfer(ychad, vesting_escrow, amount)
-    assert transfers[1] == token.Transfer(ychad, vyper_donation, support_amount)
+    assert transfers[0] == token.Transfer(owner, vesting_escrow, amount)
+    assert transfers[1] == token.Transfer(owner, vyper_donation, support_amount)
 
     assert len(approval) == 2
-    assert approval[0] == token.Approval(ychad, vesting_factory, support_amount)
-    assert approval[1] == token.Approval(ychad, vesting_factory, 0)
+    assert approval[0] == token.Approval(owner, vesting_factory, support_amount)
+    assert approval[1] == token.Approval(owner, vesting_factory, 0)
 
 
 def test_vesting_duration(
     vesting_factory,
-    ychad,
+    owner,
     recipient,
     token,
     amount,
@@ -173,8 +173,8 @@ def test_vesting_duration(
     open_claim,
     support_vyper,
 ):
-    token.mint(ychad, amount + support_amount, sender=ychad)
-    token.approve(vesting_factory, amount + support_amount, sender=ychad)
+    token.mint(owner, amount + support_amount, sender=owner)
+    token.approve(vesting_factory, amount + support_amount, sender=owner)
     with ape.reverts():  # dev_message="dev: duration must be > 0")
         vesting_factory.deploy_vesting_contract(
             token,
@@ -185,13 +185,13 @@ def test_vesting_duration(
             cliff_duration,
             open_claim,
             support_vyper,
-            sender=ychad,
+            sender=owner,
         )
 
 
 def test_wrong_recipient(
     vesting_factory,
-    ychad,
+    owner,
     token,
     amount,
     support_amount,
@@ -201,10 +201,10 @@ def test_wrong_recipient(
     open_claim,
     support_vyper,
 ):
-    token.mint(ychad, amount + support_amount, sender=ychad)
-    token.approve(vesting_factory, amount + support_amount, sender=ychad)
+    token.mint(owner, amount + support_amount, sender=owner)
+    token.approve(vesting_factory, amount + support_amount, sender=owner)
 
-    for wrong_recipient in [vesting_factory, ZERO_ADDRESS, token, ychad]:
+    for wrong_recipient in [vesting_factory, ZERO_ADDRESS, token, owner]:
         with ape.reverts():  # dev_message="dev: wrong recipient"):
             vesting_factory.deploy_vesting_contract(
                 token,
@@ -215,14 +215,14 @@ def test_wrong_recipient(
                 cliff_duration,
                 open_claim,
                 support_vyper,
-                sender=ychad,
+                sender=owner,
             )
 
 
 def test_use_transfer(
     chain,
     vesting_factory,
-    ychad,
+    owner,
     recipient,
     token,
     amount,
@@ -233,8 +233,8 @@ def test_use_transfer(
     open_claim,
     support_vyper,
 ):
-    token.mint(ychad, amount + support_amount, sender=ychad)
-    token.approve(vesting_factory, amount + support_amount, sender=ychad)
+    token.mint(owner, amount + support_amount, sender=owner)
+    token.approve(vesting_factory, amount + support_amount, sender=owner)
     chain.pending_timestamp += start_time + duration
 
     with ape.reverts():  # dev_message="dev: just use a transfer, dummy")
@@ -247,14 +247,14 @@ def test_use_transfer(
             cliff_duration,
             open_claim,
             support_vyper,
-            sender=ychad,
+            sender=owner,
         )
 
 
 def test_vyper_donation(
     project,
     vesting_target,
-    ychad,
+    owner,
     recipient,
     token,
     amount,
@@ -266,10 +266,10 @@ def test_vyper_donation(
     support_vyper,
 ):
     vyper_donation = ZERO_ADDRESS
-    vesting_factory = ychad.deploy(project.VestingEscrowFactory, vesting_target, vyper_donation)
+    vesting_factory = owner.deploy(project.VestingEscrowFactory, vesting_target, vyper_donation)
 
-    token.mint(ychad, amount + support_amount, sender=ychad)
-    token.approve(vesting_factory, amount + support_amount, sender=ychad)
+    token.mint(owner, amount + support_amount, sender=owner)
+    token.approve(vesting_factory, amount + support_amount, sender=owner)
     with ape.reverts():  # dev_message="dev: lost donation")
         vesting_factory.deploy_vesting_contract(
             token,
@@ -280,14 +280,14 @@ def test_vyper_donation(
             cliff_duration,
             open_claim,
             support_vyper,
-            sender=ychad,
+            sender=owner,
         )
 
 
 def test_vyper_donation_empty(
     project,
     vesting_target,
-    ychad,
+    owner,
     recipient,
     token,
     amount,
@@ -299,10 +299,10 @@ def test_vyper_donation_empty(
     vyper_donation = ZERO_ADDRESS
     support_vyper = 0
 
-    vesting_factory = ychad.deploy(project.VestingEscrowFactory, vesting_target, vyper_donation)
+    vesting_factory = owner.deploy(project.VestingEscrowFactory, vesting_target, vyper_donation)
 
-    token.mint(ychad, amount, sender=ychad)
-    token.approve(vesting_factory, amount, sender=ychad)
+    token.mint(owner, amount, sender=owner)
+    token.approve(vesting_factory, amount, sender=owner)
     vesting_factory.deploy_vesting_contract(
         token,
         recipient,
@@ -312,5 +312,5 @@ def test_vyper_donation_empty(
         cliff_duration,
         open_claim,
         support_vyper,
-        sender=ychad,
+        sender=owner,
     )
