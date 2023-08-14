@@ -58,7 +58,7 @@ def vesting_target(project, owner):
 @pytest.fixture(scope="module")
 def vyper_donation(accounts):
     # vyperlang.eth
-    yield accounts["0x70CCBE10F980d80b7eBaab7D2E3A73e87D67B775"]
+    yield accounts[3]
 
 
 @pytest.fixture(scope="module")
@@ -68,12 +68,12 @@ def vesting_factory(project, owner, vesting_target, vyper_donation):
 
 @pytest.fixture(scope="module")
 def amount():
-    yield 100 * 10 ** 18
+    yield 100 * 10**18
 
 
 @pytest.fixture(scope="module")
 def another_amount():
-    yield 10 * 10 ** 18
+    yield 10 * 10**18
 
 
 @pytest.fixture(scope="module")

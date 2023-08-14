@@ -1,23 +1,12 @@
 name: yearn-vesting-escrow
 
 plugins:
-  - name: ens
   - name: foundry
-  - name: tokens
   - name: vyper
 ethereum:
-  default_network: mainnet-fork
-  mainnet_fork:
+  default_network: local
+  local:
     default_provider: foundry
-foundry:
-  fork:
-    ethereum:
-      mainnet:
-        upstream_provider: geth
-geth:
-  ethereum:
-    mainnet:
-      uri: ${WEB3_PROVIDER_URI}
 
 test:
   coverage:
@@ -27,4 +16,4 @@ test:
       xml: True
       html: True  # Enable HTML report (.build/htmlcov)
       terminal:
-        verbose: true  # Show verbose coverage information in the terminal.
+        verbose: True  # Show verbose coverage information in the terminal.

@@ -16,9 +16,10 @@ ESCROWS = {
     "open_claim": True,
     "support_vyper": 100,
     "recipients": {
-        k.address: 2 ** v * 10 ** 18 for k, v in zip(ape.utils.generate_dev_accounts(), range(NUMBER_OF_VESTS))
+        k.address: 2**v * 10**18 for k, v in zip(ape.utils.generate_dev_accounts(), range(NUMBER_OF_VESTS))
     },
 }
+
 
 @click.group(short_help="Vesting escrow deployment")
 def cli():

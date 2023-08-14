@@ -8,8 +8,6 @@ on:
     - level-up
   pull_request:
 
-env:
-  WEB3_PROVIDER_URI: ${{ secrets.WEB3_PROVIDER_URI }}
 
 concurrency:
   # Cancel older, in-progress jobs from the same PR, same workflow.
@@ -28,7 +26,6 @@ jobs:
       - uses: ApeWorX/github-action@v2
         with:
           python-version: '3.11.4'
-      - run: ape tokens install https://tokens.coingecko.com/uniswap/all.json
       - run: ape compile --size
       - run: ape test tests/functional/ --gas --coverage
 
@@ -42,6 +39,5 @@ jobs:
       - uses: ApeWorX/github-action@v2
         with:
           python-version: '3.11.4'
-      - run: ape tokens install https://tokens.coingecko.com/uniswap/all.json
       - run: ape compile --size
       - run: ape test tests/integration/ -s
