@@ -89,7 +89,12 @@ def open_claim():
 
 @pytest.fixture(scope="module")
 def support_vyper():
-    yield 0  # TODO: update
+    yield 10
+
+
+@pytest.fixture(scope="module")
+def support_amount(amount, support_vyper):
+    yield amount * support_vyper // 10_000
 
 
 @pytest.fixture(scope="module")
@@ -100,13 +105,14 @@ def vesting(
     vesting_factory,
     token,
     amount,
+    support_amount,
     start_time,
     cliff_duration,
     open_claim,
     duration,
     support_vyper,
 ):
-    token.approve(vesting_factory, amount, sender=ychad)
+    token.approve(vesting_factory, amount + support_amount, sender=ychad)
     receipt = vesting_factory.deploy_vesting_contract(
         token,
         recipient,

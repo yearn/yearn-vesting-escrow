@@ -43,13 +43,14 @@ def test_deploy(
     recipient,
     token,
     amount,
+    support_amount,
     start_time,
     duration,
     cliff_duration,
     open_claim,
     support_vyper,
 ):
-    token.approve(vesting_factory, amount, sender=ychad)
+    token.approve(vesting_factory, amount + support_amount, sender=ychad)
     receipt = vesting_factory.deploy_vesting_contract(
         token,
         recipient,
@@ -87,13 +88,14 @@ def test_init_variables(
     recipient,
     token,
     amount,
+    support_amount,
     start_time,
     duration,
     cliff_duration,
     open_claim,
     support_vyper,
 ):
-    token.approve(vesting_factory, amount, sender=ychad)
+    token.approve(vesting_factory, amount + support_amount, sender=ychad)
     receipt = vesting_factory.deploy_vesting_contract(
         token,
         recipient,
@@ -119,17 +121,19 @@ def test_init_variables(
 
 def test_token_events(
     vesting_factory,
+    vyper_donation,
     ychad,
     recipient,
     token,
     amount,
+    support_amount,
     start_time,
     duration,
     cliff_duration,
     open_claim,
     support_vyper,
 ):
-    token.approve(vesting_factory, amount, sender=ychad)
+    token.approve(vesting_factory, amount + support_amount, sender=ychad)
     receipt = vesting_factory.deploy_vesting_contract(
         token,
         recipient,
@@ -145,11 +149,13 @@ def test_token_events(
     transfers = token.Transfer.from_receipt(receipt)
     approval = token.Approval.from_receipt(receipt)
 
-    assert len(transfers) == 1
+    assert len(transfers) == 2
     assert transfers[0] == token.Transfer(ychad, vesting_escrow, amount)
+    assert transfers[1] == token.Transfer(ychad, vyper_donation, support_amount)
 
-    assert len(approval) == 1
-    assert approval[0] == token.Approval(ychad, vesting_factory, 0)
+    assert len(approval) == 2
+    assert approval[0] == token.Approval(ychad, vesting_factory, support_amount)
+    assert approval[1] == token.Approval(ychad, vesting_factory, 0)
 
 
 def test_vesting_duration(
@@ -158,12 +164,13 @@ def test_vesting_duration(
     recipient,
     token,
     amount,
+    support_amount,
     start_time,
     cliff_duration,
     open_claim,
     support_vyper,
 ):
-    token.approve(vesting_factory, amount, sender=ychad)
+    token.approve(vesting_factory, amount + support_amount, sender=ychad)
     with ape.reverts():  # dev_message="dev: duration must be > 0")
         vesting_factory.deploy_vesting_contract(
             token,
@@ -183,13 +190,14 @@ def test_wrong_recipient(
     ychad,
     token,
     amount,
+    support_amount,
     start_time,
     duration,
     cliff_duration,
     open_claim,
     support_vyper,
 ):
-    token.approve(vesting_factory, amount, sender=ychad)
+    token.approve(vesting_factory, amount + support_amount, sender=ychad)
 
     for wrong_recipient in [vesting_factory, ZERO_ADDRESS, token, ychad]:
         with ape.reverts():  # dev_message="dev: wrong recipient"):
@@ -213,13 +221,14 @@ def test_use_transfer(
     recipient,
     token,
     amount,
+    support_amount,
     start_time,
     duration,
     cliff_duration,
     open_claim,
     support_vyper,
 ):
-    token.approve(vesting_factory, amount, sender=ychad)
+    token.approve(vesting_factory, amount + support_amount, sender=ychad)
     chain.pending_timestamp += start_time + duration
 
     with ape.reverts():  # dev_message="dev: just use a transfer, dummy")
