@@ -15,6 +15,8 @@ def test_collect_dust_zero_vested_token(vesting, recipient, token):
 
 
 def test_collect_dust_some_vested_token(chain, vesting, ychad, recipient, token, amount, start_time, end_time):
+    token.mint(ychad, amount, sender=ychad)
+
     token.transfer(vesting, amount, sender=ychad)
     chain.pending_timestamp += (end_time - start_time) // 2
     vesting.collect_dust(token, sender=recipient)
@@ -24,6 +26,8 @@ def test_collect_dust_some_vested_token(chain, vesting, ychad, recipient, token,
 def test_collect_dust_some_vested_token_and_claimed(
     chain, vesting, ychad, recipient, token, amount, start_time, end_time
 ):
+    token.mint(ychad, amount, sender=ychad)
+
     token.transfer(vesting, amount, sender=ychad)
     chain.pending_timestamp += (end_time - start_time) // 2
     receipt = vesting.claim(sender=recipient)

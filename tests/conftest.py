@@ -1,5 +1,4 @@
 import ape
-from ape_tokens import tokens
 from ape.types import AddressType
 import pytest
 
@@ -32,13 +31,13 @@ def cold_storage(accounts):
 
 
 @pytest.fixture(scope="module")
-def token():
-    return tokens["YFI"]
+def token(project, ychad):
+    yield ychad.deploy(project.MockToken)
 
 
 @pytest.fixture(scope="module")
-def another_token():
-    return tokens["DAI"]
+def another_token(project, ychad):
+    return ychad.deploy(project.MockToken)
 
 
 @pytest.fixture(scope="module")
@@ -73,13 +72,13 @@ def vesting_factory(project, ychad, vesting_target, vyper_donation):
 
 
 @pytest.fixture(scope="module")
-def amount(token):
-    yield ape.convert(f"100 {token.symbol()}", int)
+def amount():
+    yield 100 * 10 ** 18
 
 
 @pytest.fixture(scope="module")
-def another_amount(another_token):
-    yield ape.convert(f"10 {another_token.symbol()}", int)
+def another_amount():
+    yield 10 * 10 ** 18
 
 
 @pytest.fixture(scope="module")
@@ -104,14 +103,19 @@ def vesting(
     recipient,
     vesting_factory,
     token,
+    another_token,
     amount,
     support_amount,
+    another_amount,
     start_time,
     cliff_duration,
     open_claim,
     duration,
     support_vyper,
 ):
+    token.mint(ychad, amount + support_amount, sender=ychad)
+    another_token.mint(ychad, another_amount, sender=ychad)
+
     token.approve(vesting_factory, amount + support_amount, sender=ychad)
     receipt = vesting_factory.deploy_vesting_contract(
         token,
