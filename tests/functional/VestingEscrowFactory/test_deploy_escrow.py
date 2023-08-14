@@ -243,3 +243,66 @@ def test_use_transfer(
             support_vyper,
             sender=ychad,
         )
+
+
+def test_vyper_donation(
+    project,
+    vesting_target,
+    ychad,
+    recipient,
+    token,
+    amount,
+    support_amount,
+    start_time,
+    duration,
+    cliff_duration,
+    open_claim,
+    support_vyper,
+):
+    vyper_donation = ZERO_ADDRESS
+    vesting_factory = ychad.deploy(project.VestingEscrowFactory, vesting_target, vyper_donation)
+
+    token.approve(vesting_factory, amount + support_amount, sender=ychad)
+    with ape.reverts():  # dev_message="dev: lost donation")
+        vesting_factory.deploy_vesting_contract(
+            token,
+            recipient,
+            amount,
+            duration,
+            start_time,
+            cliff_duration,
+            open_claim,
+            support_vyper,
+            sender=ychad,
+        )
+
+
+def test_vyper_donation_empty(
+    project,
+    vesting_target,
+    ychad,
+    recipient,
+    token,
+    amount,
+    start_time,
+    duration,
+    cliff_duration,
+    open_claim,
+):
+    vyper_donation = ZERO_ADDRESS
+    support_vyper = 0
+
+    vesting_factory = ychad.deploy(project.VestingEscrowFactory, vesting_target, vyper_donation)
+
+    token.approve(vesting_factory, amount, sender=ychad)
+    vesting_factory.deploy_vesting_contract(
+        token,
+        recipient,
+        amount,
+        duration,
+        start_time,
+        cliff_duration,
+        open_claim,
+        support_vyper,
+        sender=ychad,
+    )
