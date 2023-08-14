@@ -2,15 +2,39 @@ import ape
 from ape.utils import ZERO_ADDRESS
 
 
-def test_approve_fail(vesting_factory, ychad, recipient, token, amount, duration):
+def test_approve_fail(
+    vesting_factory,
+    ychad,
+    recipient,
+    token,
+    amount,
+    start_time,
+    duration,
+    cliff_duration,
+    open_claim,
+    support_vyper,
+):
     with ape.reverts():  # no error message, depends on token
         vesting_factory.deploy_vesting_contract(
-            token, recipient, amount, duration, ychad, sender=ychad
+            token,
+            recipient,
+            amount,
+            duration,
+            start_time,
+            cliff_duration,
+            open_claim,
+            support_vyper,
+            ychad,
+            sender=ychad,
         )
 
 
 def test_target_is_set(vesting_factory, vesting_target):
     assert vesting_factory.TARGET() == vesting_target
+
+
+def test_vyper_is_set(vesting_factory, vyper_donation):
+    assert vesting_factory.VYPER() == vyper_donation
 
 
 def test_deploy(
@@ -23,10 +47,20 @@ def test_deploy(
     duration,
     cliff_duration,
     open_claim,
+    support_vyper,
 ):
     token.approve(vesting_factory, amount, sender=ychad)
     receipt = vesting_factory.deploy_vesting_contract(
-        token, recipient, amount, duration, start_time, cliff_duration, sender=ychad
+        token,
+        recipient,
+        amount,
+        duration,
+        start_time,
+        cliff_duration,
+        open_claim,
+        support_vyper,
+        ychad,
+        sender=ychad,
     )
 
     vesting_escrow_address = receipt.return_value
@@ -57,6 +91,7 @@ def test_init_variables(
     duration,
     cliff_duration,
     open_claim,
+    support_vyper,
 ):
     token.approve(vesting_factory, amount, sender=ychad)
     receipt = vesting_factory.deploy_vesting_contract(
@@ -67,6 +102,7 @@ def test_init_variables(
         start_time,
         cliff_duration,
         open_claim,
+        support_vyper,
         sender=ychad,
     )
 
@@ -90,12 +126,21 @@ def test_token_events(
     start_time,
     duration,
     cliff_duration,
+    open_claim,
+    support_vyper,
 ):
     token.approve(vesting_factory, amount, sender=ychad)
     receipt = vesting_factory.deploy_vesting_contract(
-        token, recipient, amount, duration, start_time, cliff_duration, sender=ychad
+        token,
+        recipient,
+        amount,
+        duration,
+        start_time,
+        cliff_duration,
+        open_claim,
+        support_vyper,
+        sender=ychad,
     )
-
     vesting_escrow = receipt.return_value
     transfers = token.Transfer.from_receipt(receipt)
     approval = token.Approval.from_receipt(receipt)
@@ -115,11 +160,21 @@ def test_vesting_duration(
     amount,
     start_time,
     cliff_duration,
+    open_claim,
+    support_vyper,
 ):
     token.approve(vesting_factory, amount, sender=ychad)
     with ape.reverts():  # dev_message="dev: duration must be > 0")
         vesting_factory.deploy_vesting_contract(
-            token, recipient, amount, 0, start_time, cliff_duration, sender=ychad
+            token,
+            recipient,
+            amount,
+            0,
+            start_time,
+            cliff_duration,
+            open_claim,
+            support_vyper,
+            sender=ychad,
         )
 
 
@@ -132,6 +187,7 @@ def test_wrong_recipient(
     duration,
     cliff_duration,
     open_claim,
+    support_vyper,
 ):
     token.approve(vesting_factory, amount, sender=ychad)
 
@@ -145,6 +201,7 @@ def test_wrong_recipient(
                 start_time,
                 cliff_duration,
                 open_claim,
+                support_vyper,
                 sender=ychad,
             )
 
@@ -159,11 +216,21 @@ def test_use_transfer(
     start_time,
     duration,
     cliff_duration,
+    open_claim,
+    support_vyper,
 ):
     token.approve(vesting_factory, amount, sender=ychad)
     chain.pending_timestamp += start_time + duration
 
     with ape.reverts():  # dev_message="dev: just use a transfer, dummy")
         vesting_factory.deploy_vesting_contract(
-            token, recipient, amount, duration, start_time, cliff_duration, sender=ychad
+            token,
+            recipient,
+            amount,
+            duration,
+            start_time,
+            cliff_duration,
+            open_claim,
+            support_vyper,
+            sender=ychad,
         )

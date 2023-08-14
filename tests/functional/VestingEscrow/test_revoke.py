@@ -27,7 +27,15 @@ def test_revoke_before_start_time(chain, vesting, ychad, recipient, token, end_t
 
 
 def test_revoke_partially_ununclaimed(
-    chain, vesting, ychad, recipient, token, amount, start_time, end_time, cliff_duration
+    chain,
+    vesting,
+    ychad,
+    recipient,
+    token,
+    amount,
+    start_time,
+    end_time,
+    cliff_duration,
 ):
     balance_ychad = token.balanceOf(ychad)
     chain.pending_timestamp = start_time + 2 * cliff_duration
@@ -40,14 +48,18 @@ def test_revoke_partially_ununclaimed(
 
     expected_amount = amount * (tx.timestamp - start_time) // (end_time - start_time)
     assert token.balanceOf(recipient) == expected_amount
-    assert (
-        token.balanceOf(ychad)
-        == balance_ychad + vesting.total_locked() - expected_amount
-    )
+    assert token.balanceOf(ychad) == balance_ychad + vesting.total_locked() - expected_amount
 
 
 def test_revoke_for_cliff(
-    chain, vesting, ychad, recipient, token, start_time, end_time, cliff_duration
+    chain,
+    vesting,
+    ychad,
+    recipient,
+    token,
+    start_time,
+    end_time,
+    cliff_duration,
 ):
     balance_ychad = token.balanceOf(ychad)
     chain.pending_timestamp = start_time + cliff_duration // 2
@@ -71,9 +83,7 @@ def test_revoke_at_end_time(vesting, ychad, end_time):
         vesting.revoke(end_time, sender=ychad)
 
 
-def test_revoke_ts_balance(
-    chain, vesting, ychad, recipient, token, start_time, end_time
-):
+def test_revoke_ts_balance(chain, vesting, ychad, recipient, token, start_time, end_time):
     ts = start_time + (end_time - start_time) // 2
     vesting.revoke(ts, sender=ychad)
 

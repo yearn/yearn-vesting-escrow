@@ -1,6 +1,4 @@
-def test_claim_non_vested_token(
-    vesting, ychad, recipient, another_token, another_amount
-):
+def test_claim_non_vested_token(vesting, ychad, recipient, another_token, another_amount):
     another_token.transfer(vesting, another_amount, sender=ychad)
 
     vesting.collect_dust(another_token, sender=recipient)
@@ -16,9 +14,7 @@ def test_collect_dust_zero_vested_token(vesting, recipient, token):
     assert transfers[0] == token.Transfer(vesting, recipient, 0)
 
 
-def test_collect_dust_some_vested_token(
-    chain, vesting, ychad, recipient, token, amount, start_time, end_time
-):
+def test_collect_dust_some_vested_token(chain, vesting, ychad, recipient, token, amount, start_time, end_time):
     token.transfer(vesting, amount, sender=ychad)
     chain.pending_timestamp += (end_time - start_time) // 2
     vesting.collect_dust(token, sender=recipient)
@@ -42,18 +38,14 @@ def test_collect_dust_some_vested_token_and_claimed(
     assert token.balanceOf(recipient) == amount + claimed_amount
 
 
-def test_collect_dust_beneficiary(
-    vesting, ychad, recipient, cold_storage, another_token, another_amount
-):
+def test_collect_dust_beneficiary(vesting, ychad, recipient, cold_storage, another_token, another_amount):
     another_token.transfer(vesting, another_amount, sender=ychad)
 
     vesting.collect_dust(another_token, cold_storage, sender=recipient)
     assert another_token.balanceOf(cold_storage) == another_amount
 
 
-def test_collect_dust_recepient_beneficiary(
-    vesting, ychad, recipient, another_token, another_amount
-):
+def test_collect_dust_recepient_beneficiary(vesting, ychad, recipient, another_token, another_amount):
     another_token.transfer(vesting, another_amount, sender=ychad)
 
     vesting.collect_dust(another_token, recipient, sender=ychad)

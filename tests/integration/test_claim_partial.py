@@ -18,9 +18,7 @@ def test_claim_partial_copy(
 
     tx = vesting.claim(sender=recipient)
     if tx.timestamp - start_time > cliff_duration:
-        expected_amount = (
-            amount * (tx.timestamp - start_time) // (end_time - start_time)
-        )
+        expected_amount = amount * (tx.timestamp - start_time) // (end_time - start_time)
     else:
         expected_amount = 0
 

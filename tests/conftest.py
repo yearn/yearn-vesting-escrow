@@ -62,8 +62,14 @@ def vesting_target(project, ychad):
 
 
 @pytest.fixture(scope="module")
-def vesting_factory(project, ychad, vesting_target):
-    yield ychad.deploy(project.VestingEscrowFactory, vesting_target)
+def vyper_donation(accounts):
+    # 0x70CCBE10F980d80b7eBaab7D2E3A73e87D67B775
+    yield accounts[ape.convert("vyperlang.eth", AddressType)]
+
+
+@pytest.fixture(scope="module")
+def vesting_factory(project, ychad, vesting_target, vyper_donation):
+    yield ychad.deploy(project.VestingEscrowFactory, vesting_target, vyper_donation)
 
 
 @pytest.fixture(scope="module")
@@ -82,6 +88,11 @@ def open_claim():
 
 
 @pytest.fixture(scope="module")
+def support_vyper():
+    yield 0  # TODO: update
+
+
+@pytest.fixture(scope="module")
 def vesting(
     project,
     ychad,
@@ -93,6 +104,7 @@ def vesting(
     cliff_duration,
     open_claim,
     duration,
+    support_vyper,
 ):
     token.approve(vesting_factory, amount, sender=ychad)
     receipt = vesting_factory.deploy_vesting_contract(
@@ -103,6 +115,7 @@ def vesting(
         start_time,
         cliff_duration,
         open_claim,
+        support_vyper,
         sender=ychad,
     )
     escrow = vesting_factory.VestingEscrowCreated.from_receipt(receipt)[0]
