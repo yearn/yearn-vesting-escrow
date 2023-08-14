@@ -170,7 +170,7 @@ def test_vesting_duration(
 ):
     token.mint(owner, amount + support_amount, sender=owner)
     token.approve(vesting_factory, amount + support_amount, sender=owner)
-    with ape.reverts():  # dev_message="dev: duration must be > 0")
+    with ape.reverts(dev_message="dev: incorrect vesting cliff"):
         vesting_factory.deploy_vesting_contract(
             token,
             recipient,
@@ -200,7 +200,7 @@ def test_wrong_recipient(
     token.approve(vesting_factory, amount + support_amount, sender=owner)
 
     for wrong_recipient in [vesting_factory, ZERO_ADDRESS, token, owner]:
-        with ape.reverts():  # dev_message="dev: wrong recipient"):
+        with ape.reverts(dev_message="dev: wrong recipient"):
             vesting_factory.deploy_vesting_contract(
                 token,
                 wrong_recipient,
@@ -232,7 +232,7 @@ def test_use_transfer(
     token.approve(vesting_factory, amount + support_amount, sender=owner)
     chain.pending_timestamp += start_time + duration
 
-    with ape.reverts():  # dev_message="dev: just use a transfer, dummy")
+    with ape.reverts(dev_message="dev: just use a transfer, dummy"):
         vesting_factory.deploy_vesting_contract(
             token,
             recipient,
@@ -265,7 +265,7 @@ def test_vyper_donation(
 
     token.mint(owner, amount + support_amount, sender=owner)
     token.approve(vesting_factory, amount + support_amount, sender=owner)
-    with ape.reverts():  # dev_message="dev: lost donation")
+    with ape.reverts(dev_message="dev: lost donation"):
         vesting_factory.deploy_vesting_contract(
             token,
             recipient,

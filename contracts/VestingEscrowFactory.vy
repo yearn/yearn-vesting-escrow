@@ -1,4 +1,4 @@
-# @version 0.3.9
+# @version 0.3.7
 
 """
 @title Vesting Escrow Factory
@@ -78,7 +78,9 @@ def deploy_vesting_contract(
     assert vesting_start + vesting_duration > block.timestamp  # dev: just use a transfer, dummy
     assert vesting_duration > 0  # dev: duration must be > 0
     assert recipient not in [self, empty(address), token.address, owner]  # dev: wrong recipient
-    assert support_vyper == 0 or VYPER != empty(address)  # dev: lost donation
+
+    if support_vyper > 0:
+        assert VYPER != empty(address)  # dev: lost donation
 
     escrow: address = create_minimal_proxy_to(TARGET)
 

@@ -7,7 +7,8 @@ ethereum:
   default_network: local
   local:
     default_provider: foundry
-
+foundry:
+  host: auto
 test:
   coverage:
     exclude:
