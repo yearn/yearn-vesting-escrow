@@ -46,7 +46,7 @@ def __init__(target: address, vyper_donate: address):
     @dev Prior to deployment you must deploy one copy of `VestingEscrowSimple` which
          is used as a library for vesting contracts deployed by this factory
     @param target `VestingEscrowSimple` contract address
-    @param vyper_donate `VestingEscrowSimple` contract address
+    @param vyper_donate Vyper Safe address for donations (vyperlang.eth on mainnet)
     """
     TARGET = target
     VYPER = vyper_donate
@@ -66,21 +66,20 @@ def deploy_vesting_contract(
 ) -> address:
     """
     @notice Deploy a new vesting contract
-    @param token Address of the ERC20 token being distributed
+    @dev Prior to deployment you must approve `amount` + `amount` * `support_vyper` / 10_000
+         tokens
+    @param token ERC20 token being distributed
     @param recipient Address to vest tokens for
     @param amount Amount of tokens being vested for `recipient`
     @param vesting_duration Time period over which tokens are released
     @param vesting_start Epoch time when tokens begin to vest
-    @param open_claim Anyone can claim for `recipient`
-    @param support_vyper Donation percentage in bps
+    @param open_claim Switch if anyone can claim for `recipient`
+    @param support_vyper Donation percentage in bps, 1% by default
     """
     assert cliff_length <= vesting_duration  # dev: incorrect vesting cliff
     assert vesting_start + vesting_duration > block.timestamp  # dev: just use a transfer, dummy
     assert vesting_duration > 0  # dev: duration must be > 0
     assert recipient not in [self, empty(address), token.address, owner]  # dev: wrong recipient
-
-    if support_vyper > 0:
-        assert VYPER != empty(address)  # dev: lost donation
 
     escrow: address = create_minimal_proxy_to(TARGET)
 
@@ -97,6 +96,7 @@ def deploy_vesting_contract(
     # skip transferFrom and approve and send directly to escrow
     assert token.transferFrom(msg.sender, escrow, amount, default_return_value=True)  # dev: funding failed
     if support_vyper > 0:
+        assert VYPER != empty(address)  # dev: lost donation
         assert token.transferFrom(
             msg.sender,
             VYPER,

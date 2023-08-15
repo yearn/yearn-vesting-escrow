@@ -63,10 +63,10 @@ def initialize(
     open_claim: bool,
 ) -> bool:
     """
-    @notice Initialize the contract.
+    @notice Initialize the contract
     @dev This function is seperate from `__init__` because of the factory pattern
          used in `VestingEscrowFactory.deploy_vesting_contract`. It may be called
-         once per deployment.
+         once per deployment
     @param owner Owner address
     @param token Address of the ERC20 token being distributed
     @param recipient Address to vest tokens for
@@ -74,6 +74,7 @@ def initialize(
     @param start_time Epoch time at which token distribution starts
     @param end_time Time until everything should be vested
     @param cliff_length Duration after which the first portion vests
+    @param open_claim Switch if anyone can claim for `recipient`
     """
     assert not self.initialized  # dev: can only initialize once
     self.initialized = True
@@ -114,8 +115,8 @@ def _unclaimed(time: uint256 = block.timestamp) -> uint256:
 def unclaimed() -> uint256:
     """
     @notice Get the number of unclaimed, vested tokens for recipient
+    @dev If `disown` is activated, limit by the activation timestamp
     """
-    # NOTE: if `disown` is activated, limit by the activation timestamp
     return self._unclaimed(min(block.timestamp, self.disabled_at))
 
 
@@ -133,8 +134,8 @@ def _locked(time: uint256 = block.timestamp) -> uint256:
 def locked() -> uint256:
     """
     @notice Get the number of locked tokens for recipient
+    @dev If `disown` is activated, limit by the activation timestamp
     """
-    # NOTE: if `disown` is activated, limit by the activation timestamp
     return self._locked(min(block.timestamp, self.disabled_at))
 
 
@@ -146,7 +147,7 @@ def claim(beneficiary: address = msg.sender, amount: uint256 = max_value(uint256
     @param amount Amount of tokens to claim
     """
     recipient: address = self.recipient
-    assert (msg.sender == recipient or self.open_claim and recipient == beneficiary)  # dev: not authorized
+    assert msg.sender == recipient or self.open_claim and recipient == beneficiary  # dev: not authorized
 
     claim_period_end: uint256 = min(block.timestamp, self.disabled_at)
     claimable: uint256 = min(self._unclaimed(claim_period_end), amount)
@@ -161,11 +162,11 @@ def claim(beneficiary: address = msg.sender, amount: uint256 = max_value(uint256
 @external
 def revoke(ts: uint256 = block.timestamp, beneficiary: address = msg.sender):
     """
-    @notice Disable further flow of tokens and clawback the unvested part to `beneficiary`.
-        Rugging more than once is futile.
-    @dev Owner is set to zero address.
-    @param ts Timestamp of the clawback.
-    @param beneficiary Recipient of the unvested part.
+    @notice Disable further flow of tokens and clawback the unvested part to `beneficiary`
+            Revoking more than once is futile
+    @dev Owner is set to zero address
+    @param ts Timestamp of the clawback
+    @param beneficiary Recipient of the unvested part
     """
     owner: address = self.owner
     assert msg.sender == owner  # dev: not owner
@@ -196,6 +197,9 @@ def disown():
 
 @external
 def set_open_claim(open_claim: bool):
+    """
+    @notice Disallow or let anyone claim tokens for `recipient`
+    """
     assert msg.sender == self.recipient  # dev: not recipient
     self.open_claim = open_claim
 
