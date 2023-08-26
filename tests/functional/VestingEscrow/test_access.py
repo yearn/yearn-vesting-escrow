@@ -11,7 +11,7 @@ def test_disown(vesting, owner):
 
 
 def test_disown_not_owner(vesting, recipient):
-    with ape.reverts():  # dev_message="dev: not owner")
+    with ape.reverts(dev_message="dev: not owner"):
         vesting.disown(sender=recipient)
 
 
@@ -29,5 +29,5 @@ def test_set_open_claim(vesting, recipient):
 
 
 def test_set_open_claim_not_recipient(vesting, owner):
-    with ape.reverts():  # dev_message="dev: not recipient")
+    with ape.reverts(dev_message="dev: not recipient"):
         vesting.set_open_claim(False, sender=owner)

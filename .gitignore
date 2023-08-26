@@ -1,6 +1,7 @@
 # Ape stuff
 .build/
 .cache/
+build
 
 # Python
 .env
@@ -10,3 +11,4 @@
 __pycache__
 
 .hypothesis
+yearn-vesting-data

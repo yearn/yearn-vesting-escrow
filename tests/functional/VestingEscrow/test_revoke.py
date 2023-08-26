@@ -3,7 +3,7 @@ from ape.utils import ZERO_ADDRESS
 
 
 def test_revoke_owner_only(vesting, recipient):
-    with ape.reverts():  # "dev: owner only"):
+    with ape.reverts(dev_message="dev: not owner"):
         vesting.revoke(sender=recipient)
 
 
@@ -74,12 +74,12 @@ def test_revoke_for_cliff(
 
 def test_revoke_in_past(chain, vesting, owner):
     ts = chain.pending_timestamp - 1
-    with ape.reverts():  # "dev: no back to the future"):
+    with ape.reverts(dev_message="dev: no back to the future"):
         vesting.revoke(ts, sender=owner)
 
 
 def test_revoke_at_end_time(vesting, owner, end_time):
-    with ape.reverts():  # "dev: no back to the future"):
+    with ape.reverts(dev_message="dev: no back to the future"):
         vesting.revoke(end_time, sender=owner)
 
 
@@ -102,7 +102,7 @@ def test_revoke_renounce_owner(vesting, owner, start_time, end_time):
 
 def test_revoke_after_end_time(vesting, owner, end_time):
     ts = end_time + 1
-    with ape.reverts():  # "dev: no back to the future"):
+    with ape.reverts(dev_message="dev: no back to the future"):
         vesting.revoke(ts, sender=owner)
 
 

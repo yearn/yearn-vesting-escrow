@@ -33,7 +33,7 @@ def test_claim_recepient_beneficiary(chain, vesting, owner, recipient, token, am
 def test_claim_not_open(chain, vesting, owner, recipient, end_time):
     vesting.set_open_claim(False, sender=recipient)
     chain.pending_timestamp = end_time
-    with ape.reverts():  # dev_message="dev: not authorized"):
+    with ape.reverts(dev_message="dev: not authorized"):
         vesting.claim(recipient, sender=owner)
 
 
