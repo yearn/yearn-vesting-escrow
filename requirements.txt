@@ -1,5 +1,0 @@
-eth-ape==0.6.13
-ape-foundry==0.6.9
-ape-vyper==0.6.9
-black==21.12b0
-hypothesis==6.82.0

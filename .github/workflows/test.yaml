@@ -3,11 +3,10 @@ name: Test
 on:
   push:
     branches:
-    - master
-    - develop
-    - level-up
+      - master
+      - develop
+      - level-up
   pull_request:
-
 
 concurrency:
   # Cancel older, in-progress jobs from the same PR, same workflow.
@@ -17,7 +16,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  functional:
+  tests:
     runs-on: ubuntu-latest
 
     steps:
@@ -25,19 +24,18 @@ jobs:
       - uses: foundry-rs/foundry-toolchain@v1
       - uses: ApeWorX/github-action@v2
         with:
-          python-version: '3.11.4'
-      - run: ape compile --size
-      - run: ape test tests/functional/ --gas --coverage
+          python-version: "3.11.4"
 
+      - name: version overrides
+        run: |
+          pip install git+https://github.com/apeworx/ape.git@main
+          pip install git+https://github.com/apeworx/ethpm-types.git@main
+          pip install git+https://github.com/apeworx/ape-foundry.git@main
+          pip install git+https://github.com/antazoey/ape-vyper.git@feat/dev-message-fixes
 
-  integration:
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v3
-      - uses: foundry-rs/foundry-toolchain@v1
-      - uses: ApeWorX/github-action@v2
-        with:
-          python-version: '3.11.4'
-      - run: ape compile --size
-      - run: ape test tests/integration/ -s
+      - name: compile
+        run: ape compile --size
+      - name: functional
+        run: ape test tests/functional/ --gas --coverage
+      - name: integration
+        run: ape test tests/integration/ -s
