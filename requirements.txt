@@ -1,0 +1,4 @@
+ape-foundry>=0.6.15
+ape-vyper>=0.6.10
+eth-ape @ git+https://github.com/antazoey/ape.git@81913332e2180560b03feed8b16c121a494d0c81
+hypothesis>=6.82.4

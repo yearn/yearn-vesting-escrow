@@ -2,7 +2,7 @@ import pytest
 import ape
 from ape.utils import ZERO_ADDRESS
 
-@pytest.mark.skip("awaiting ape bug fix")
+
 def test_approve_fail(
     vesting_factory,
     owner,
@@ -247,7 +247,6 @@ def test_use_transfer(
         )
 
 
-@pytest.mark.skip("awaiting ape bug fix")
 def test_vyper_donation(
     project,
     vesting_target,

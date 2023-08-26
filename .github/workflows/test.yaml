@@ -5,7 +5,6 @@ on:
     branches:
       - master
       - develop
-      - level-up
   pull_request:
 
 concurrency:
@@ -16,26 +15,30 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  tests:
+  functional:
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v3
       - uses: foundry-rs/foundry-toolchain@v1
-      - uses: ApeWorX/github-action@v2
+      - uses: ApeWorX/github-action@v2.1
         with:
           python-version: "3.11.4"
+          ape-plugins-list: "."
+      - run: ape compile --size
+      - run: ape networks list
+      - run: ape test tests/functional/ --gas --coverage
 
-      - name: version overrides
-        run: |
-          pip install git+https://github.com/apeworx/ape.git@main
-          pip install git+https://github.com/apeworx/ethpm-types.git@main
-          pip install git+https://github.com/apeworx/ape-foundry.git@main
-          pip install git+https://github.com/antazoey/ape-vyper.git@feat/dev-message-fixes
+  integration:
+    runs-on: ubuntu-latest
 
-      - name: compile
-        run: ape compile --size
-      - name: functional
-        run: ape test tests/functional/ --gas --coverage
-      - name: integration
-        run: ape test tests/integration/ -s
+    steps:
+      - uses: actions/checkout@v3
+      - uses: foundry-rs/foundry-toolchain@v1
+      - uses: ApeWorX/github-action@v2.1
+        with:
+          python-version: "3.11.4"
+          ape-plugins-list: "."
+      - run: ape compile --size
+      - run: ape networks list
+      - run: ape test tests/integration/ -s
