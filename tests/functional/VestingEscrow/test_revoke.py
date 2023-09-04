@@ -106,5 +106,12 @@ def test_revoke_after_end_time(vesting, owner, end_time):
         vesting.revoke(ts, sender=owner)
 
 
-def test_revoke_beneficiary():
-    pass
+def test_revoke_beneficiary(chain, vesting, owner, recipient, token, amount, start_time, end_time):
+    ts = start_time + (end_time - start_time) // 2
+    vesting.revoke(ts, recipient, sender=owner)
+
+    chain.pending_timestamp = ts
+    vesting.claim(sender=recipient)
+
+    assert token.balanceOf(recipient) == amount
+
