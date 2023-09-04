@@ -1,75 +1,127 @@
+import ape
+from ape.types import AddressType
 import pytest
 
-WEEK = 7 * 24 * 60 * 60  # seconds
-YEAR = 365.25 * 24 * 60 * 60  # seconds
-
-
-@pytest.fixture(autouse=True)
-def isolation_setup(fn_isolation):
-    pass
+YEAR = int(365.25 * 24 * 60 * 60)
 
 
 @pytest.fixture(scope="session")
-def alice(accounts):
-    yield accounts[0]
+def duration():
+    yield 3 * YEAR
 
 
 @pytest.fixture(scope="session")
-def bob(accounts):
+def owner(accounts):
+    return accounts[0]
+
+
+@pytest.fixture(scope="session")
+def recipient(accounts):
     yield accounts[1]
 
 
 @pytest.fixture(scope="session")
-def charlie(accounts):
+def cold_storage(accounts):
     yield accounts[2]
 
 
-@pytest.fixture(scope="session")
-def receiver(accounts):
-    yield accounts.at("0x0000000000000000000000000000000000031337", True)
+@pytest.fixture(scope="module")
+def token(project, owner):
+    yield owner.deploy(project.MockToken)
 
 
 @pytest.fixture(scope="module")
-def token(ERC20, accounts):
-    yield ERC20.deploy("Yearn Token", "YFI", 18, {"from": accounts[0]})
+def another_token(project, owner):
+    return owner.deploy(project.MockToken)
 
 
 @pytest.fixture(scope="module")
 def start_time(chain):
-    yield chain.time() + 1000 + 86400 * 365
+    yield chain.pending_timestamp + YEAR
 
 
 @pytest.fixture(scope="module")
-def end_time(start_time):
-    yield int(start_time + 3 * YEAR)
+def end_time(start_time, duration):
+    yield int(start_time + duration)
 
 
 @pytest.fixture(scope="module")
-def cliff_duration():
-    yield int(YEAR / 6)
+def cliff_duration(duration):
+    yield duration // 6
 
 
 @pytest.fixture(scope="module")
-def vesting_target(VestingEscrowSimple, accounts):
-    yield VestingEscrowSimple.deploy({"from": accounts[0]})
+def vesting_target(project, owner):
+    yield owner.deploy(project.VestingEscrowSimple)
 
 
 @pytest.fixture(scope="module")
-def vesting_factory(VestingEscrowFactory, accounts, vesting_target):
-    yield VestingEscrowFactory.deploy(vesting_target, {"from": accounts[0]})
+def vyper_donation(accounts):
+    # vyperlang.eth
+    yield accounts[3]
 
 
 @pytest.fixture(scope="module")
-def vesting(VestingEscrowSimple, accounts, vesting_factory, token, start_time, cliff_duration):
-    token._mint_for_testing(10 ** 20, {"from": accounts[0]})
-    token.approve(vesting_factory, 10 ** 20, {"from": accounts[0]})
-    tx = vesting_factory.deploy_vesting_contract(
+def vesting_factory(project, owner, vesting_target, vyper_donation):
+    yield owner.deploy(project.VestingEscrowFactory, vesting_target, vyper_donation)
+
+
+@pytest.fixture(scope="module")
+def amount():
+    yield 100 * 10**18
+
+
+@pytest.fixture(scope="module")
+def another_amount():
+    yield 10 * 10**18
+
+
+@pytest.fixture(scope="module")
+def open_claim():
+    yield True
+
+
+@pytest.fixture(scope="module")
+def support_vyper():
+    yield 10
+
+
+@pytest.fixture(scope="module")
+def support_amount(amount, support_vyper):
+    yield amount * support_vyper // 10_000
+
+
+@pytest.fixture(scope="module")
+def vesting(
+    project,
+    owner,
+    recipient,
+    vesting_factory,
+    token,
+    another_token,
+    amount,
+    support_amount,
+    another_amount,
+    start_time,
+    cliff_duration,
+    open_claim,
+    duration,
+    support_vyper,
+):
+    token.mint(owner, amount + support_amount, sender=owner)
+    another_token.mint(owner, another_amount, sender=owner)
+
+    token.approve(vesting_factory, amount + support_amount, sender=owner)
+    receipt = vesting_factory.deploy_vesting_contract(
         token,
-        accounts[1],
-        10 ** 20,
-        3 * YEAR,  # duration
+        recipient,
+        amount,
+        duration,
         start_time,
         cliff_duration,
-        {"from": accounts[0]},
+        open_claim,
+        support_vyper,
+        sender=owner,
     )
-    yield VestingEscrowSimple.at(tx.new_contracts[0])
+    escrow = vesting_factory.VestingEscrowCreated.from_receipt(receipt)[0]
+    yield project.VestingEscrowSimple.at(escrow.escrow)

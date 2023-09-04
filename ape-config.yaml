@@ -1,0 +1,20 @@
+name: yearn-vesting-escrow
+
+plugins:
+  - name: foundry
+  - name: vyper
+ethereum:
+  default_network: local
+  local:
+    default_provider: foundry
+foundry:
+  host: auto
+test:
+  coverage:
+    exclude:
+      - contract_name: "Mock*"
+    reports:
+      xml: True
+      html: True  # Enable HTML report (.build/htmlcov)
+      terminal:
+        verbose: True  # Show verbose coverage information in the terminal.

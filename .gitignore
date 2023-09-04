@@ -1,5 +1,14 @@
+# Ape stuff
+.build/
+.cache/
+build
+
+# Python
+.env
+.venv
+.envrc
+.pytest_cache
 __pycache__
-.history
-.hypothesis/
-build/
-reports/
+
+.hypothesis
+yearn-vesting-data

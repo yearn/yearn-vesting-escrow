@@ -1,4 +1,5 @@
-# @version 0.2.16
+# @version 0.3.9
+
 """
 @title Simple Vesting Escrow
 @author Curve Finance, Yearn Finance
@@ -9,23 +10,26 @@
 
 from vyper.interfaces import ERC20
 
-event Fund:
-    recipient: indexed(address)
-    amount: uint256
 
 event Claim:
     recipient: indexed(address)
     claimed: uint256
 
-event RugPull:
+
+event Revoked:
     recipient: address
+    owner: address
     rugged: uint256
+    ts: uint256
 
-event CommitOwnership:
-    admin: address
 
-event ApplyOwnership:
-    admin: address
+event Disowned:
+    owner: address
+
+
+event SetOpenClaim:
+    state: bool
+
 
 recipient: public(address)
 token: public(ERC20)
@@ -35,10 +39,11 @@ cliff_length: public(uint256)
 total_locked: public(uint256)
 total_claimed: public(uint256)
 disabled_at: public(uint256)
+open_claim: public(bool)
 initialized: public(bool)
 
-admin: public(address)
-future_admin: public(address)
+owner: public(address)
+
 
 @external
 def __init__():
@@ -47,44 +52,43 @@ def __init__():
 
 
 @external
-@nonreentrant('lock')
 def initialize(
-    admin: address,
-    token: address,
+    owner: address,
+    token: ERC20,
     recipient: address,
     amount: uint256,
     start_time: uint256,
     end_time: uint256,
     cliff_length: uint256,
+    open_claim: bool,
 ) -> bool:
     """
-    @notice Initialize the contract.
+    @notice Initialize the contract
     @dev This function is seperate from `__init__` because of the factory pattern
          used in `VestingEscrowFactory.deploy_vesting_contract`. It may be called
-         once per deployment.
-    @param admin Admin address
+         once per deployment
+    @param owner Owner address
     @param token Address of the ERC20 token being distributed
     @param recipient Address to vest tokens for
     @param amount Amount of tokens being vested for `recipient`
     @param start_time Epoch time at which token distribution starts
     @param end_time Time until everything should be vested
     @param cliff_length Duration after which the first portion vests
+    @param open_claim Switch if anyone can claim for `recipient`
     """
     assert not self.initialized  # dev: can only initialize once
     self.initialized = True
 
-    self.token = ERC20(token)
-    self.admin = admin
+    self.token = token
+    self.owner = owner
     self.start_time = start_time
     self.end_time = end_time
     self.cliff_length = cliff_length
 
-    assert self.token.transferFrom(msg.sender, self, amount)  # dev: could not fund escrow
-
     self.recipient = recipient
     self.disabled_at = end_time  # Set to maximum time
     self.total_locked = amount
-    log Fund(recipient, amount)
+    self.open_claim = open_claim
 
     return True
 
@@ -111,15 +115,18 @@ def _unclaimed(time: uint256 = block.timestamp) -> uint256:
 def unclaimed() -> uint256:
     """
     @notice Get the number of unclaimed, vested tokens for recipient
+    @dev If `disown` is activated, limit by the activation timestamp
     """
-    # NOTE: if `rug_pull` is activated, limit by the activation timestamp
     return self._unclaimed(min(block.timestamp, self.disabled_at))
 
 
 @internal
 @view
 def _locked(time: uint256 = block.timestamp) -> uint256:
-    return min(self.token.balanceOf(self) - self._unclaimed(time), self.total_locked - self._total_vested_at(time))
+    return min(
+        self.token.balanceOf(self) - self._unclaimed(time),
+        self.total_locked - self._total_vested_at(time),
+    )
 
 
 @external
@@ -127,78 +134,85 @@ def _locked(time: uint256 = block.timestamp) -> uint256:
 def locked() -> uint256:
     """
     @notice Get the number of locked tokens for recipient
+    @dev If `disown` is activated, limit by the activation timestamp
     """
-    # NOTE: if `rug_pull` is activated, limit by the activation timestamp
     return self._locked(min(block.timestamp, self.disabled_at))
 
 
 @external
-def claim(beneficiary: address = msg.sender, amount: uint256 = MAX_UINT256):
+def claim(beneficiary: address = msg.sender, amount: uint256 = max_value(uint256)) -> uint256:
     """
     @notice Claim tokens which have vested
     @param beneficiary Address to transfer claimed tokens to
     @param amount Amount of tokens to claim
     """
     recipient: address = self.recipient
-    assert msg.sender == recipient or recipient == beneficiary # dev: not authorized
+    assert msg.sender == recipient or self.open_claim and recipient == beneficiary  # dev: not authorized
 
     claim_period_end: uint256 = min(block.timestamp, self.disabled_at)
     claimable: uint256 = min(self._unclaimed(claim_period_end), amount)
     self.total_claimed += claimable
 
-    assert self.token.transfer(beneficiary, claimable)
+    assert self.token.transfer(beneficiary, claimable, default_return_value=True)
     log Claim(beneficiary, claimable)
 
-
-@external
-def rug_pull():
-    """
-    @notice Disable further flow of tokens and clawback the unvested part to admin
-    """
-    assert msg.sender == self.admin  # dev: admin only
-    # NOTE: Rugging more than once is futile
-
-    self.disabled_at = block.timestamp
-    ruggable: uint256 = self._locked()
-
-    assert self.token.transfer(self.admin, ruggable)
-    log RugPull(self.recipient, ruggable)
+    return claimable
 
 
 @external
-def commit_transfer_ownership(addr: address):
+def revoke(ts: uint256 = block.timestamp, beneficiary: address = msg.sender):
     """
-    @notice Transfer ownership of the contract to `addr`
-    @param addr Address to have ownership transferred to
+    @notice Disable further flow of tokens and clawback the unvested part to `beneficiary`
+            Revoking more than once is futile
+    @dev Owner is set to zero address
+    @param ts Timestamp of the clawback
+    @param beneficiary Recipient of the unvested part
     """
-    assert msg.sender == self.admin  # dev: admin only
-    self.future_admin = addr
-    log CommitOwnership(addr)
+    owner: address = self.owner
+    assert msg.sender == owner  # dev: not owner
+    assert ts >= block.timestamp and ts < self.end_time  # dev: no back to the future
+
+    self.disabled_at = ts
+    ruggable: uint256 = self._locked(ts)
+
+    assert self.token.transfer(beneficiary, ruggable, default_return_value=True)
+
+    self.owner = empty(address)
+
+    log Disowned(owner)
+    log Revoked(self.recipient, owner, ruggable, ts)
 
 
 @external
-def apply_transfer_ownership():
+def disown():
     """
-    @notice Apply pending ownership transfer
+    @notice Renounce owner control of the escrow
     """
-    assert msg.sender == self.future_admin  # dev: future admin only
-    self.admin = msg.sender
-    self.future_admin = ZERO_ADDRESS
-    log ApplyOwnership(msg.sender)
+    owner: address = self.owner
+    assert msg.sender == owner  # dev: not owner
+    self.owner = empty(address)
+
+    log Disowned(owner)
 
 
 @external
-def renounce_ownership():
+def set_open_claim(open_claim: bool):
     """
-    @notice Renounce admin control of the escrow
+    @notice Disallow or let anyone claim tokens for `recipient`
     """
-    assert msg.sender == self.admin  # dev: admin only
-    self.future_admin = ZERO_ADDRESS
-    self.admin = ZERO_ADDRESS
-    log ApplyOwnership(ZERO_ADDRESS)
+    assert msg.sender == self.recipient  # dev: not recipient
+    self.open_claim = open_claim
+
+    log SetOpenClaim(open_claim)
+
 
 @external
-def collect_dust(token: address):
-    assert msg.sender == self.recipient  # dev: recipient only
-    assert (token != self.token.address or block.timestamp > self.disabled_at)
-    assert ERC20(token).transfer(self.recipient, ERC20(token).balanceOf(self))
+def collect_dust(token: ERC20, beneficiary: address = msg.sender):
+    recipient: address = self.recipient
+    assert msg.sender == recipient or self.open_claim and recipient == beneficiary  # dev: not authorized
+
+    amount: uint256 = token.balanceOf(self)
+    if token == self.token:
+        amount = amount + self.total_claimed - self.total_locked
+
+    assert token.transfer(beneficiary, amount, default_return_value=True)

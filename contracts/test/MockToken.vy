@@ -34,6 +34,7 @@ def transferFrom(owner: address, receiver: address, amount: uint256) -> bool:
     self.balanceOf[receiver] += amount
     self.allowance[owner][msg.sender] -= amount
     log Transfer(owner, receiver, amount)
+    log Approval(owner, msg.sender, self.allowance[owner][msg.sender])
     return True
 
 

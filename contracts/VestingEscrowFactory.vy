@@ -1,4 +1,5 @@
-# @version 0.2.16
+# @version 0.3.9
+
 """
 @title Vesting Escrow Factory
 @author Curve Finance, Yearn Finance
@@ -11,69 +12,107 @@ from vyper.interfaces import ERC20
 
 interface VestingEscrowSimple:
     def initialize(
-        admin: address,
-        token: address,
+        owner: address,
+        token: ERC20,
         recipient: address,
         amount: uint256,
         start_time: uint256,
         end_time: uint256,
         cliff_length: uint256,
+        open_claim: bool,
     ) -> bool: nonpayable
 
 
 event VestingEscrowCreated:
     funder: indexed(address)
-    token: indexed(address)
+    token: indexed(ERC20)
     recipient: indexed(address)
     escrow: address
     amount: uint256
     vesting_start: uint256
     vesting_duration: uint256
     cliff_length: uint256
+    open_claim: bool
 
 
-target: public(address)
+TARGET: public(immutable(address))
+VYPER: public(immutable(address))
+
 
 @external
-def __init__(target: address):
+def __init__(target: address, vyper_donate: address):
     """
     @notice Contract constructor
     @dev Prior to deployment you must deploy one copy of `VestingEscrowSimple` which
          is used as a library for vesting contracts deployed by this factory
     @param target `VestingEscrowSimple` contract address
+    @param vyper_donate Vyper Safe address for donations (vyperlang.eth on mainnet)
     """
-    self.target = target
+    TARGET = target
+    VYPER = vyper_donate
 
 
 @external
 def deploy_vesting_contract(
-    token: address,
+    token: ERC20,
     recipient: address,
     amount: uint256,
     vesting_duration: uint256,
     vesting_start: uint256 = block.timestamp,
     cliff_length: uint256 = 0,
+    open_claim: bool = True,
+    support_vyper: uint256 = 100,
+    owner: address = msg.sender,
 ) -> address:
     """
     @notice Deploy a new vesting contract
-    @param token Address of the ERC20 token being distributed
+    @dev Prior to deployment you must approve `amount` + `amount` * `support_vyper` / 10_000
+         tokens
+    @param token ERC20 token being distributed
     @param recipient Address to vest tokens for
     @param amount Amount of tokens being vested for `recipient`
     @param vesting_duration Time period over which tokens are released
     @param vesting_start Epoch time when tokens begin to vest
+    @param open_claim Switch if anyone can claim for `recipient`
+    @param support_vyper Donation percentage in bps, 1% by default
     """
     assert cliff_length <= vesting_duration  # dev: incorrect vesting cliff
-    escrow: address = create_forwarder_to(self.target)
-    assert ERC20(token).transferFrom(msg.sender, self, amount)  # dev: funding failed
-    assert ERC20(token).approve(escrow, amount)  # dev: approve failed
+    assert vesting_start + vesting_duration > block.timestamp  # dev: just use a transfer, dummy
+    assert vesting_duration > 0  # dev: duration must be > 0
+    assert recipient not in [self, empty(address), token.address, owner]  # dev: wrong recipient
+
+    escrow: address = create_minimal_proxy_to(TARGET)
+
     VestingEscrowSimple(escrow).initialize(
-        msg.sender,
+        owner,
         token,
         recipient,
         amount,
         vesting_start,
         vesting_start + vesting_duration,
         cliff_length,
+        open_claim,
     )
-    log VestingEscrowCreated(msg.sender, token, recipient, escrow, amount, vesting_start, vesting_duration, cliff_length)
+    # skip transferFrom and approve and send directly to escrow
+    assert token.transferFrom(msg.sender, escrow, amount, default_return_value=True)  # dev: funding failed
+    if support_vyper > 0:
+        assert VYPER != empty(address)  # dev: lost donation
+        assert token.transferFrom(
+            msg.sender,
+            VYPER,
+            amount * support_vyper / 10_000,
+            default_return_value=True
+        )  # dev: donation failed
+
+    log VestingEscrowCreated(
+        msg.sender,
+        token,
+        recipient,
+        escrow,
+        amount,
+        vesting_start,
+        vesting_duration,
+        cliff_length,
+        open_claim,
+    )
     return escrow
