@@ -21,7 +21,7 @@ def test_set_open_claim(vesting, recipient):
     assert not vesting.open_claim()
     assert vesting.SetOpenClaim() == open_claim
 
-    # test state doens't change after similar change
+    # test state doesn't change after similar change
     receipt = vesting.set_open_claim(False, sender=recipient)
     open_claim = vesting.SetOpenClaim.from_receipt(receipt)[0]
     assert not vesting.open_claim()
