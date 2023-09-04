@@ -8,6 +8,7 @@ A modified version of [Curve Vesting Escrow](https://github.com/curvefi/curve-da
 - An ability to `open_claim` and let anyone to claim for beneficiary recipient.
 - An ability to terminate an escrow and choose beneficiary for the unvested tokens using `revoke`. The recipient is still entitled to the vested portion.
 - An ability to use ERC20 non-compliant `token`, e.g. USDT.
+- An ability to `support_vyper` at escrow creation.
 - Factory admin controls removed, anyone can deploy escrows, funds are pulled instead of pushed.
 - Factory emits an event which allows finding all the escrows deployed from it.
 
