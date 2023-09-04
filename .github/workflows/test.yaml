@@ -26,7 +26,6 @@ jobs:
           python-version: "3.11.4"
           ape-plugins-list: "."
       - run: ape compile --size
-      - run: ape networks list
       - run: ape test tests/functional/ --gas --coverage
 
   integration:
@@ -40,5 +39,4 @@ jobs:
           python-version: "3.11.4"
           ape-plugins-list: "."
       - run: ape compile --size
-      - run: ape networks list
       - run: ape test tests/integration/ -s
