@@ -169,8 +169,8 @@ def revoke(ts: uint256 = block.timestamp, beneficiary: address = msg.sender):
     assert msg.sender == owner  # dev: not owner
     assert ts >= block.timestamp and ts < self.end_time  # dev: no back to the future
 
-    self.disabled_at = ts
     ruggable: uint256 = self._locked(ts)
+    self.disabled_at = ts
 
     assert self.token.transfer(beneficiary, ruggable, default_return_value=True)
 
@@ -210,6 +210,6 @@ def collect_dust(token: ERC20, beneficiary: address = msg.sender):
 
     amount: uint256 = token.balanceOf(self)
     if token == self.token:
-        amount = amount + self.total_claimed - self.total_locked
+        amount = amount + self.total_claimed - self._total_vested_at(self.disabled_at)
 
     assert token.transfer(beneficiary, amount, default_return_value=True)
