@@ -73,7 +73,7 @@ def initialize(
     @param amount Amount of tokens being vested for `recipient`
     @param start_time Epoch time at which token distribution starts
     @param end_time Time until everything should be vested
-    @param cliff_length Duration after which the first portion vests
+    @param cliff_length Duration (in seconds) after which the first portion vests
     @param open_claim Switch if anyone can claim for `recipient`
     """
     assert not self.initialized  # dev: can only initialize once
