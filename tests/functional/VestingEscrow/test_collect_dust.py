@@ -54,3 +54,23 @@ def test_collect_dust_recepient_beneficiary(vesting, owner, recipient, another_t
 
     vesting.collect_dust(another_token, recipient, sender=owner)
     assert another_token.balanceOf(recipient) == another_amount
+
+
+def test_collect_dust_after_revoke(chain, vesting, owner, recipient, token, amount, start_time, end_time):
+    token.mint(owner, amount, sender=owner)
+
+    ts = start_time + (end_time - start_time) // 2
+    vesting.revoke(ts, sender=owner)
+
+    token.transfer(vesting, amount, sender=owner)
+    receipt = vesting.collect_dust(token, sender=recipient)
+
+    transfers = token.Transfer.from_receipt(receipt)
+    assert len(transfers) == 1
+    assert transfers[0] == token.Transfer(vesting, recipient, amount)
+    assert token.balanceOf(recipient) == amount
+
+    chain.pending_timestamp = end_time
+    vesting.claim(sender=recipient)
+
+    assert token.balanceOf(vesting) == 0

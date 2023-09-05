@@ -71,10 +71,11 @@ def deploy_vesting_contract(
     @param token ERC20 token being distributed
     @param recipient Address to vest tokens for
     @param amount Amount of tokens being vested for `recipient`
-    @param vesting_duration Time period over which tokens are released
+    @param vesting_duration Time period (in seconds) over which tokens are released
     @param vesting_start Epoch time when tokens begin to vest
     @param open_claim Switch if anyone can claim for `recipient`
     @param support_vyper Donation percentage in bps, 1% by default
+    @param owner Vesting contract owner
     """
     assert cliff_length <= vesting_duration  # dev: incorrect vesting cliff
     assert vesting_start + vesting_duration > block.timestamp  # dev: just use a transfer, dummy

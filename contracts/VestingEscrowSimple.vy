@@ -73,7 +73,7 @@ def initialize(
     @param amount Amount of tokens being vested for `recipient`
     @param start_time Epoch time at which token distribution starts
     @param end_time Time until everything should be vested
-    @param cliff_length Duration after which the first portion vests
+    @param cliff_length Duration (in seconds) after which the first portion vests
     @param open_claim Switch if anyone can claim for `recipient`
     """
     assert not self.initialized  # dev: can only initialize once
@@ -115,7 +115,7 @@ def _unclaimed(time: uint256 = block.timestamp) -> uint256:
 def unclaimed() -> uint256:
     """
     @notice Get the number of unclaimed, vested tokens for recipient
-    @dev If `disown` is activated, limit by the activation timestamp
+    @dev If `revoke` is activated, limit by the activation timestamp
     """
     return self._unclaimed(min(block.timestamp, self.disabled_at))
 
@@ -123,10 +123,7 @@ def unclaimed() -> uint256:
 @internal
 @view
 def _locked(time: uint256 = block.timestamp) -> uint256:
-    return min(
-        self.token.balanceOf(self) - self._unclaimed(time),
-        self.total_locked - self._total_vested_at(time),
-    )
+    return self._total_vested_at(self.disabled_at) - self._total_vested_at(time)
 
 
 @external
@@ -134,7 +131,7 @@ def _locked(time: uint256 = block.timestamp) -> uint256:
 def locked() -> uint256:
     """
     @notice Get the number of locked tokens for recipient
-    @dev If `disown` is activated, limit by the activation timestamp
+    @dev If `revoke` is activated, limit by the activation timestamp
     """
     return self._locked(min(block.timestamp, self.disabled_at))
 
@@ -172,8 +169,8 @@ def revoke(ts: uint256 = block.timestamp, beneficiary: address = msg.sender):
     assert msg.sender == owner  # dev: not owner
     assert ts >= block.timestamp and ts < self.end_time  # dev: no back to the future
 
-    self.disabled_at = ts
     ruggable: uint256 = self._locked(ts)
+    self.disabled_at = ts
 
     assert self.token.transfer(beneficiary, ruggable, default_return_value=True)
 
@@ -213,6 +210,6 @@ def collect_dust(token: ERC20, beneficiary: address = msg.sender):
 
     amount: uint256 = token.balanceOf(self)
     if token == self.token:
-        amount = amount + self.total_claimed - self.total_locked
+        amount = amount + self.total_claimed - self._total_vested_at(self.disabled_at)
 
     assert token.transfer(beneficiary, amount, default_return_value=True)
