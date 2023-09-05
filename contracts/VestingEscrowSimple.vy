@@ -115,7 +115,7 @@ def _unclaimed(time: uint256 = block.timestamp) -> uint256:
 def unclaimed() -> uint256:
     """
     @notice Get the number of unclaimed, vested tokens for recipient
-    @dev If `disown` is activated, limit by the activation timestamp
+    @dev If `revoke` is activated, limit by the activation timestamp
     """
     return self._unclaimed(min(block.timestamp, self.disabled_at))
 
@@ -123,10 +123,7 @@ def unclaimed() -> uint256:
 @internal
 @view
 def _locked(time: uint256 = block.timestamp) -> uint256:
-    return min(
-        self.token.balanceOf(self) - self._unclaimed(time),
-        self.total_locked - self._total_vested_at(time),
-    )
+    return self._total_vested_at(self.disabled_at) - self._total_vested_at(time)
 
 
 @external
@@ -134,7 +131,7 @@ def _locked(time: uint256 = block.timestamp) -> uint256:
 def locked() -> uint256:
     """
     @notice Get the number of locked tokens for recipient
-    @dev If `disown` is activated, limit by the activation timestamp
+    @dev If `revoke` is activated, limit by the activation timestamp
     """
     return self._locked(min(block.timestamp, self.disabled_at))
 
