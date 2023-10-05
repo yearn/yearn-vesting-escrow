@@ -1,4 +1,4 @@
-ape-foundry==0.6.15
-ape-vyper==0.6.10
-eth-ape==0.6.19
+ape-foundry==0.6.16
+ape-vyper==0.6.11
+eth-ape==0.6.21
 hypothesis>=6.82.4
