@@ -21,7 +21,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - uses: foundry-rs/foundry-toolchain@v1
-      - uses: ApeWorX/github-action@v2.1
+      - uses: ApeWorX/github-action@v2.4
         with:
           python-version: "3.11.4"
           ape-plugins-list: "."
@@ -34,7 +34,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
       - uses: foundry-rs/foundry-toolchain@v1
-      - uses: ApeWorX/github-action@v2.1
+      - uses: ApeWorX/github-action@v2.4
         with:
           python-version: "3.11.4"
           ape-plugins-list: "."
