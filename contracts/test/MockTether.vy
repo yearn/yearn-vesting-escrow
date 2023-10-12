@@ -1,4 +1,4 @@
-# @version 0.3.9
+# @version 0.3.10
 # @dev token with a missing return value
 from vyper.interfaces import ERC20
 
