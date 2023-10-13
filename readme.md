@@ -30,6 +30,8 @@ factory.deploy_vesting_contract(token, recipient, amount, vesting_duration, vest
 
 ### v0.3.0
 
+This version is [audited](https://github.com/yearn/yearn-security/tree/master/audits/20231013_Mixbytes_yearn_vesting_escrow) by Mixbytes.
+
 - `VestingEscrowFactory`: [0x200C92Dd85730872Ab6A1e7d5E40A067066257cF](https://etherscan.io/address/0x200c92dd85730872ab6a1e7d5e40a067066257cf#code)
 - `VestingEscrowSimple`:  [0x9692F652A3048eb7F5074e12B907F20d33F37a01](https://etherscan.io/address/0x9692f652a3048eb7f5074e12b907f20d33f37a01#code)
 
