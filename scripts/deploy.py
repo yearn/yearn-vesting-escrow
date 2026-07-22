@@ -1,88 +1,85 @@
-import click
-import ape
-from ape import networks, project
-from ape.cli import (
-    NetworkBoundCommand,
-    ape_cli_context,
-)
+#!/usr/bin/env python3
+"""Deploy the escrow implementation and factory.
+
+This is development tooling, not the production rollout script. Network secrets
+are read from the environment and never accepted as command-line values.
+"""
+
+import argparse
+import json
+import os
+from pathlib import Path
+
+import boa
+from eth_account import Account
 
 
-YEAR = int(365.25 * 24 * 60 * 60)
-NUMBER_OF_VESTS = 10
-ESCROWS = {
-    "duration": 3 * YEAR,
-    "start_time": 1650990522,
-    "cliff_duration": YEAR // 3,
-    "open_claim": True,
-    "support_vyper": 100,
-    "recipients": {
-        k.address: 2**v * 10**18 for k, v in zip(ape.utils.generate_dev_accounts(), range(NUMBER_OF_VESTS))
-    },
-}
+CONTRACTS = Path(__file__).resolve().parents[1] / "contracts"
+VYPER_DONATE = "0x70CCBE10F980d80b7eBaab7D2E3A73e87D67B775"
 
 
-@click.group(short_help="Vesting escrow deployment")
-def cli():
-    pass
+def configure_environment(rpc_url, private_key_env, expected_chain_id):
+    if rpc_url is None:
+        deployer = boa.env.generate_address("deployer")
+        boa.env.set_balance(deployer, 10**24)
+        return deployer, "local"
+
+    private_key = os.environ.get(private_key_env)
+    if private_key is None:
+        raise SystemExit(f"{private_key_env} must be set for network deployment")
+
+    boa.set_network_env(rpc_url)
+    account = Account.from_key(private_key)
+    boa.env.add_account(account, force_eoa=True)
+    chain_id = boa.env.get_chain_id()
+    if expected_chain_id is not None and chain_id != expected_chain_id:
+        raise SystemExit(f"expected chain ID {expected_chain_id}, connected to {chain_id}")
+    return account.address, chain_id
 
 
-@cli.command(cls=NetworkBoundCommand)
-@ape_cli_context()
-def deploy(cli_ctx):
-    # check network
-    ecosystem_name = networks.provider.network.ecosystem.name
-    network_name = networks.provider.network.name
-    provider_name = networks.provider.name
-
-    owner = cli_ctx.account_manager.test_accounts[0]
-
-    click.secho(
-        f"You are connected to network '{ecosystem_name}:{network_name}:{provider_name}'.",
-        fg="yellow",
+def deploy_contracts(deployer, vyper_donate):
+    target = boa.load(CONTRACTS / "VestingEscrowSimple.vy", sender=deployer)
+    factory = boa.load(
+        CONTRACTS / "VestingEscrowFactory.vy",
+        target,
+        vyper_donate,
+        sender=deployer,
     )
-    click.secho(f"Deployer is set to '{owner}'.", fg="yellow")
 
-    vyper_donate = "0x70CCBE10F980d80b7eBaab7D2E3A73e87D67B775"
+    assert factory.TARGET() == target.address
+    assert factory.VYPER() == vyper_donate
+    assert target.version() == factory.version() == 2
+    return target, factory
 
-    target = project.VestingEscrowSimple.deploy(sender=owner)
-    factory = project.VestingEscrowFactory.deploy(target, vyper_donate, sender=owner)
 
-    token = project.MockToken.deploy(sender=owner)
-    target = project.VestingEscrowSimple.deploy(sender=owner)
-    factory = project.VestingEscrowFactory.deploy(target, vyper_donate, sender=owner)
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--rpc-url", default=os.environ.get("RPC_URL"))
+    parser.add_argument("--private-key-env", default="DEPLOYER_PRIVATE_KEY")
+    parser.add_argument("--expected-chain-id", type=int)
+    parser.add_argument("--vyper-donate", default=VYPER_DONATE)
+    args = parser.parse_args()
 
-    amount = sum(ESCROWS["recipients"].values())
-    support_amount = sum(ESCROWS["recipients"].values()) * ESCROWS["support_vyper"] // 10_000
-    total_amount = amount + support_amount
+    deployer, chain_id = configure_environment(
+        args.rpc_url,
+        args.private_key_env,
+        args.expected_chain_id,
+    )
+    target, factory = deploy_contracts(deployer, args.vyper_donate)
 
-    token.mint(owner, total_amount, sender=owner)
-    token.approve(factory, total_amount, sender=owner)
-
-    for recipient, amount in ESCROWS["recipients"].items():
-        if recipient == owner:
-            continue
-
-        tx = factory.deploy_vesting_contract(
-            token,
-            recipient,
-            amount,
-            ESCROWS["duration"],
-            ESCROWS["start_time"],
-            ESCROWS["cliff_duration"],
-            ESCROWS["open_claim"],
-            ESCROWS["support_vyper"],
-            sender=owner,
+    print(
+        json.dumps(
+            {
+                "chain_id": chain_id,
+                "deployer": str(deployer),
+                "vyper_donate": args.vyper_donate,
+                "target": str(target.address),
+                "factory": str(factory.address),
+            },
+            indent=2,
         )
+    )
 
-        escrow = project.VestingEscrowSimple.at(tx.return_value)
 
-        assert token.balanceOf(escrow) == amount
-        assert escrow.recipient() == recipient
-        assert escrow.end_time() == ESCROWS["start_time"] + ESCROWS["duration"]
-        assert escrow.start_time() == ESCROWS["start_time"]
-        assert escrow.cliff_length() == ESCROWS["cliff_duration"]
-        assert escrow.open_claim() == ESCROWS["open_claim"]
-
-        print(f"progress {escrow.unclaimed() / escrow.total_locked():.3%}")
-        print("locked", escrow.locked())
-        print("unclaimed", escrow.unclaimed())
+if __name__ == "__main__":
+    main()

@@ -5,10 +5,15 @@ from ethereum.ercs import IERC20
 implements: IERC20
 
 
+interface VestingEscrow:
+    def owner() -> address: view
+
+
 event Transfer:
     sender: indexed(address)
     receiver: indexed(address)
     value: uint256
+
 
 event Approval:
     owner: indexed(address)
@@ -19,11 +24,18 @@ event Approval:
 balanceOf: public(HashMap[address, uint256])
 allowance: public(HashMap[address, HashMap[address, uint256]])
 totalSupply: public(uint256)
+watched_escrow: public(address)
+observed_owner: public(address)
+extra_debit: public(uint256)
 
 
 @external
 def transfer(receiver: address, amount: uint256) -> bool:
-    self.balanceOf[msg.sender] -= amount
+    if msg.sender == self.watched_escrow:
+        self.observed_owner = staticcall VestingEscrow(msg.sender).owner()
+
+    debit: uint256 = amount + self.extra_debit
+    self.balanceOf[msg.sender] -= debit
     self.balanceOf[receiver] += amount
     log Transfer(sender=msg.sender, receiver=receiver, value=amount)
     return True
@@ -52,3 +64,9 @@ def mint(receiver: address, amount: uint256):
     self.totalSupply += amount
     self.balanceOf[receiver] += amount
     log Transfer(sender=empty(address), receiver=receiver, value=amount)
+
+
+@external
+def configure(watched_escrow: address, extra_debit: uint256):
+    self.watched_escrow = watched_escrow
+    self.extra_debit = extra_debit
