@@ -28,8 +28,6 @@ SCALE: constant(uint256) = 10**18
 asset: public(address)
 assets_per_share: public(uint256)
 transfer_fee_bps: public(uint256)
-transfers_enabled: public(bool)
-failing_receiver: public(address)
 reentry_target: public(address)
 reentry_succeeded: public(bool)
 balanceOf: public(HashMap[address, uint256])
@@ -42,7 +40,6 @@ def __init__(asset: address):
     assert asset != empty(address)
     self.asset = asset
     self.assets_per_share = SCALE
-    self.transfers_enabled = True
 
 
 @external
@@ -58,8 +55,6 @@ def convertToAssets(shares: uint256) -> uint256:
 def convertToShares(assets: uint256) -> uint256:
     if self.assets_per_share == SCALE:
         return assets
-    if self.assets_per_share == 0:
-        return 0
     return assets * SCALE // self.assets_per_share
 
 
@@ -75,16 +70,6 @@ def set_transfer_fee_bps(transfer_fee_bps: uint256):
 
 
 @external
-def set_transfers_enabled(transfers_enabled: bool):
-    self.transfers_enabled = transfers_enabled
-
-
-@external
-def set_failing_receiver(failing_receiver: address):
-    self.failing_receiver = failing_receiver
-
-
-@external
 def set_reentry_target(reentry_target: address):
     self.reentry_target = reentry_target
     self.reentry_succeeded = False
@@ -92,8 +77,6 @@ def set_reentry_target(reentry_target: address):
 
 @internal
 def _transfer(owner: address, receiver: address, amount: uint256):
-    assert self.transfers_enabled  # dev: transfers disabled
-    assert self.failing_receiver == empty(address) or receiver != self.failing_receiver  # dev: receiver disabled
     self.balanceOf[owner] -= amount
 
     fee: uint256 = amount * self.transfer_fee_bps // 10_000
