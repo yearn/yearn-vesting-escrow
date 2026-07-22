@@ -9,12 +9,19 @@ adding an opt-in `yield_to_owner` mode:
 - funding and payouts remain in the supplied ERC-20 token;
 - in yield mode that token is an ERC-4626 wrapper share;
 - the recipient receives vested principal shares;
+- cumulative checkpoints carry fractional-share entitlement across claims, so
+  claim frequency cannot reclassify recipient principal as owner yield;
 - `claim_yield()` sends the original owner only shares representing value above
   remaining principal;
 - revocation returns unvested principal shares and any available yield;
 - vault losses are borne proportionally by outstanding principal without
   blocking claims;
 - `claim_yield()` is permissionless, but always pays the fixed original owner.
+
+Supported tokens must remain transferable and move the exact requested token
+or share amount. Pauses, blacklists, transfer fees, and incompatible token or
+vault upgrades are outside the accounting model and must be excluded during
+deployment review.
 
 `VestingEscrowSimple.vy` is the sole implementation for both modes.
 `VestingEscrowFactory.vy` funds and initializes minimal proxies of that target.

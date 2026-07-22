@@ -61,6 +61,10 @@ open_claim: public(bool)
 initialized: public(bool)
 owner: public(address)
 yield_recipient: public(address)
+share_basis: uint256
+principal_basis: uint256
+basis_minimum: uint256
+rounding_credit: uint256
 
 
 @deploy
@@ -148,6 +152,10 @@ def initialize(
     self.disabled_at = end_time
     self.open_claim = open_claim
     self.yield_recipient = yield_recipient
+    if yield_to_owner:
+        self.share_basis = amount
+        self.principal_basis = principal
+        self.basis_minimum = self._minimum_principal_shares(principal)
 
     return True
 
@@ -176,39 +184,128 @@ def _claimable_principal(time: uint256) -> uint256:
 
 
 @internal
-@view
-def _split_yield(remaining: uint256) -> (uint256, uint256):
-    balance: uint256 = staticcall self.token.balanceOf(self)
-    if remaining == 0:
-        return 0, balance
-
-    value: uint256 = staticcall self.token.convertToAssets(balance)
-    if value <= remaining:
-        return balance, 0
-
-    principal_shares: uint256 = staticcall self.token.convertToShares(remaining)
-    if staticcall self.token.convertToAssets(principal_shares) < remaining:
-        principal_shares += 1
-    return principal_shares, balance - principal_shares
+@pure
+def _mul_div_down(
+    x: uint256,
+    y: uint256,
+    denominator: uint256,
+) -> uint256:
+    """Floor x * y / denominator without overflowing for bounded principal."""
+    whole: uint256 = x // denominator
+    remainder: uint256 = (x % denominator) * y
+    return whole * y + remainder // denominator
 
 
 @internal
 @pure
-def _payout_shares(
-    principal_shares: uint256,
-    remaining_before: uint256,
-    remaining_after: uint256,
+def _mul_div_up(
+    x: uint256,
+    y: uint256,
+    denominator: uint256,
 ) -> uint256:
-    if remaining_after == 0:
-        return principal_shares
+    """Ceil x * y / denominator without overflowing for bounded principal."""
+    if y == 0:
+        return 0
 
-    whole: uint256 = principal_shares // remaining_before
-    remainder: uint256 = principal_shares % remaining_before
-    scaled_remainder: uint256 = remainder * remaining_after
-    reserve: uint256 = whole * remaining_after + scaled_remainder // remaining_before
-    if scaled_remainder % remaining_before > 0:
-        reserve += 1
-    return principal_shares - reserve
+    whole: uint256 = x // denominator
+    remainder: uint256 = (x % denominator) * y
+    result: uint256 = whole * y + remainder // denominator
+    return result + convert(remainder % denominator > 0, uint256)
+
+
+@internal
+@view
+def _basis_reserve(remaining: uint256) -> uint256:
+    if remaining == 0 or self.share_basis == 0:
+        return 0
+    return self._mul_div_up(self.share_basis, remaining, self.principal_basis)
+
+
+@internal
+@view
+def _basis_has_remainder(remaining: uint256) -> bool:
+    basis: uint256 = self.principal_basis
+    if basis == 0 or remaining == basis:
+        return False
+    claimed: uint256 = basis - remaining
+    return (self.share_basis % basis) * claimed % basis > 0
+
+
+@internal
+@view
+def _minimum_principal_shares(principal: uint256) -> uint256:
+    if principal == 0:
+        return 0
+
+    principal_shares: uint256 = staticcall self.token.convertToShares(principal)
+    if principal_shares == 0:
+        if staticcall self.token.convertToAssets(1) >= principal:
+            return 1
+        return max_value(uint256)
+    if principal_shares < max_value(uint256) and staticcall self.token.convertToAssets(
+        principal_shares
+    ) < principal:
+        principal_shares += 1
+    return principal_shares
+
+
+@internal
+@view
+def _base_principal_shares(balance: uint256, remaining: uint256) -> uint256:
+    return min(self._minimum_principal_shares(remaining), balance)
+
+
+@internal
+@view
+def _allocation(remaining: uint256) -> (uint256, uint256, uint256, bool):
+    """Split balance into nominal principal, recipient rounding, and yield."""
+    balance: uint256 = staticcall self.token.balanceOf(self)
+    credit: uint256 = min(self.rounding_credit, balance)
+    available: uint256 = balance - credit
+    reserve: uint256 = self._basis_reserve(remaining)
+    base: uint256 = self._base_principal_shares(available, remaining)
+
+    basis_stable: bool = self._minimum_principal_shares(
+        self.principal_basis
+    ) == self.basis_minimum if self.principal_basis > 0 else remaining == 0
+    if reserve <= available and base <= reserve and basis_stable:
+        return reserve, credit, available - reserve, False
+
+    # A rate change can invalidate the old share basis. Settle any fractional
+    # recipient entitlement as one whole share before starting a new basis.
+    if self._basis_has_remainder(remaining) and available > 0:
+        credit += 1
+        if base == available:
+            base -= 1
+
+    return base, credit, balance - base - credit, True
+
+
+@internal
+def _sync_allocation(remaining: uint256) -> (uint256, uint256, uint256):
+    principal_shares: uint256 = 0
+    credit: uint256 = 0
+    yield_shares: uint256 = 0
+    reset_basis: bool = False
+    principal_shares, credit, yield_shares, reset_basis = self._allocation(remaining)
+
+    if reset_basis:
+        self.share_basis = principal_shares
+        self.principal_basis = remaining
+        self.basis_minimum = self._minimum_principal_shares(remaining)
+    self.rounding_credit = credit
+    return principal_shares, credit, yield_shares
+
+
+@internal
+def _record_claimed(shares: uint256):
+    """Keep the legacy counter informative without allowing it to lock claims."""
+    room: uint256 = max_value(uint256) - self.total_claimed
+    if shares >= room:
+        self.total_claimed = max_value(uint256)
+    else:
+        self.total_claimed += shares
+
 
 
 @internal
@@ -216,13 +313,20 @@ def _payout_shares(
 def _unclaimed_shares(time: uint256) -> uint256:
     remaining: uint256 = self._remaining_principal()
     claimable: uint256 = self._claimable_principal(time)
-    if claimable == 0:
-        return 0
-
     principal_shares: uint256 = 0
+    credit: uint256 = 0
     ignored_yield: uint256 = 0
-    principal_shares, ignored_yield = self._split_yield(remaining)
-    return self._payout_shares(principal_shares, remaining, remaining - claimable)
+    reset_basis: bool = False
+    principal_shares, credit, ignored_yield, reset_basis = self._allocation(remaining)
+
+    if reset_basis:
+        return credit + principal_shares - self._mul_div_up(
+            principal_shares,
+            remaining - claimable,
+            remaining,
+        ) if remaining > 0 else credit
+
+    return credit + self._basis_reserve(remaining) - self._basis_reserve(remaining - claimable)
 
 
 @external
@@ -266,9 +370,11 @@ def locked() -> uint256:
         return 0
 
     principal_shares: uint256 = 0
+    credit: uint256 = 0
     ignored_yield: uint256 = 0
-    principal_shares, ignored_yield = self._split_yield(remaining)
-    return principal_shares - self._unclaimed_shares(time)
+    reset_basis: bool = False
+    principal_shares, credit, ignored_yield, reset_basis = self._allocation(remaining)
+    return principal_shares + credit - self._unclaimed_shares(time)
 
 
 @external
@@ -277,8 +383,12 @@ def claimable_yield() -> uint256:
     if not self._yield_enabled():
         return 0
     ignored_principal: uint256 = 0
+    ignored_credit: uint256 = 0
     yield_shares: uint256 = 0
-    ignored_principal, yield_shares = self._split_yield(self._remaining_principal())
+    reset_basis: bool = False
+    ignored_principal, ignored_credit, yield_shares, reset_basis = self._allocation(
+        self._remaining_principal()
+    )
     return yield_shares
 
 
@@ -312,13 +422,17 @@ def claim(
     claimable: uint256 = self._claimable_principal(claim_period_end)
 
     principal_shares: uint256 = 0
+    credit: uint256 = 0
     ignored_yield: uint256 = 0
-    principal_shares, ignored_yield = self._split_yield(remaining)
-    claim_shares: uint256 = self._payout_shares(principal_shares, remaining, remaining - claimable)
+    principal_shares, credit, ignored_yield = self._sync_allocation(remaining)
+    claim_shares: uint256 = credit + self._basis_reserve(remaining) - self._basis_reserve(
+        remaining - claimable
+    )
     assert amount >= claim_shares  # dev: share cap too low
 
+    self.rounding_credit = 0
     self.principal_claimed += claimable
-    self.total_claimed += claim_shares
+    self._record_claimed(claim_shares)
 
     if claim_shares > 0:
         assert extcall self.token.transfer(beneficiary, claim_shares, default_return_value=True)
@@ -336,8 +450,9 @@ def claim_yield() -> uint256:
 
     remaining: uint256 = self._remaining_principal()
     ignored_principal: uint256 = 0
+    ignored_credit: uint256 = 0
     yield_shares: uint256 = 0
-    ignored_principal, yield_shares = self._split_yield(remaining)
+    ignored_principal, ignored_credit, yield_shares = self._sync_allocation(remaining)
 
     if yield_shares > 0:
         assert extcall self.token.transfer(yield_recipient, yield_shares, default_return_value=True)
@@ -370,12 +485,28 @@ def revoke(
     remaining: uint256 = self.total_principal - self.principal_claimed
     recipient_remaining: uint256 = self._total_vested_at(ts) - self.principal_claimed
     principal_shares: uint256 = 0
+    credit: uint256 = 0
     yield_shares: uint256 = 0
-    principal_shares, yield_shares = self._split_yield(remaining)
-    clawback_shares: uint256 = self._payout_shares(principal_shares, remaining, recipient_remaining)
+    principal_shares, credit, yield_shares = self._sync_allocation(remaining)
+    unvested: uint256 = remaining - recipient_remaining
+    clawback_shares: uint256 = self._mul_div_down(
+        self.share_basis,
+        unvested,
+        self.principal_basis,
+    ) if unvested > 0 else 0
+    retained_shares: uint256 = principal_shares - clawback_shares
+
+    # Materialize a carried fraction before changing the vesting basis.
+    if self._basis_has_remainder(remaining) and retained_shares > 0:
+        credit += 1
+        retained_shares -= 1
 
     self.disabled_at = ts
     self.owner = empty(address)
+    self.rounding_credit = credit
+    self.share_basis = retained_shares
+    self.principal_basis = recipient_remaining
+    self.basis_minimum = self._minimum_principal_shares(recipient_remaining)
 
     if clawback_shares > 0:
         assert extcall self.token.transfer(beneficiary, clawback_shares, default_return_value=True)

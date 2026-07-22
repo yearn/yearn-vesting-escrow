@@ -3,6 +3,34 @@ import boa
 from tests.helpers import ZERO_ADDRESS, at, deploy
 
 
+def create_standard_escrow(
+    factory,
+    token,
+    owner,
+    recipient,
+    amount,
+    duration,
+    start,
+    cliff=0,
+):
+    token.mint(owner, amount, sender=owner)
+    token.approve(factory, amount, sender=owner)
+    address = factory.deploy_vesting_contract(
+        token,
+        recipient,
+        amount,
+        duration,
+        start,
+        cliff,
+        True,
+        0,
+        owner,
+        False,
+        sender=owner,
+    )
+    return at("VestingEscrowSimple", address)
+
+
 def test_claims_standard_tokens(
     chain,
     vesting,
@@ -202,6 +230,83 @@ def test_revoke_clears_owner_before_transfer(
     escrow.revoke(sender=owner)
 
     assert token.observed_owner() == ZERO_ADDRESS
+
+
+def test_failed_claim_and_revoke_roll_back_and_can_retry(
+    chain,
+    vesting_target,
+    vyper_donation,
+    owner,
+    recipient,
+    amount,
+    duration,
+    start_time,
+):
+    token = deploy("test/AdversarialToken", sender=owner)
+    factory = deploy("VestingEscrowFactory", vesting_target, vyper_donation, sender=owner)
+    escrow = create_standard_escrow(
+        factory,
+        token,
+        owner,
+        recipient,
+        amount,
+        duration,
+        start_time,
+    )
+    chain.pending_timestamp = start_time + duration // 2
+    token.configure(escrow, amount, sender=owner)
+
+    with boa.reverts():
+        escrow.claim(sender=recipient)
+    assert escrow.total_claimed() == 0
+    assert escrow.principal_claimed() == 0
+    assert token.balanceOf(escrow) == amount
+
+    with boa.reverts():
+        escrow.revoke(sender=owner)
+    assert escrow.owner() == owner
+    assert escrow.disabled_at() == start_time + duration
+    assert token.balanceOf(escrow) == amount
+
+    token.configure(escrow, 0, sender=owner)
+    recipient_amount = escrow.claim(sender=recipient)
+    escrow.revoke(sender=owner)
+
+    assert token.balanceOf(recipient) == recipient_amount
+    assert token.balanceOf(owner) == amount - recipient_amount
+    assert token.balanceOf(escrow) == 0
+
+
+def test_revoke_before_vesting_or_cliff_leaves_no_residue(
+    chain,
+    vesting_factory,
+    owner,
+    recipient,
+    token,
+    amount,
+    duration,
+    start_time,
+    cliff_duration,
+):
+    for revoke_time in (chain.pending_timestamp, start_time + cliff_duration - 1):
+        with boa.env.anchor():
+            escrow = create_standard_escrow(
+                vesting_factory,
+                token,
+                owner,
+                recipient,
+                amount,
+                duration,
+                start_time,
+                cliff_duration,
+            )
+            chain.pending_timestamp = revoke_time
+            escrow.revoke(sender=owner)
+
+            assert escrow.claim(sender=recipient) == 0
+            assert token.balanceOf(owner) == amount
+            assert token.balanceOf(recipient) == 0
+            assert token.balanceOf(escrow) == 0
 
 
 def test_disown_is_final(vesting, owner):
