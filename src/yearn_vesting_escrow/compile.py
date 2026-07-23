@@ -16,7 +16,8 @@ def pragma(path):
 
 
 def main():
-    sources = sorted(CONTRACTS.rglob("*.vy"))
+    # Modules are compiled transitively by their importing deployable contracts.
+    sources = sorted(path for path in CONTRACTS.rglob("*.vy") if "modules" not in path.parts)
     for source in sources:
         boa.load_partial(source)
         print(f"compiled {source.relative_to(CONTRACTS)} ({pragma(source)})")

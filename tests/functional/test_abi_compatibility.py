@@ -7,7 +7,11 @@ CONTRACTS = Path(__file__).resolve().parents[2] / "contracts"
 
 def compile_abi(name):
     path = CONTRACTS / f"{name}.vy"
-    return compile_code(path.read_text(), contract_path=path, output_formats=["abi"])["abi"]
+    return compile_code(
+        path.read_text(),
+        contract_path=path,
+        output_formats=["abi"],
+    )["abi"]
 
 
 def functions(abi):
@@ -32,7 +36,7 @@ def events(abi):
     }
 
 
-def test_escrow_preserves_deployed_abi():
+def test_standard_escrow_keeps_the_standard_token_abi():
     abi = compile_abi("VestingEscrowSimple")
     actual = functions(abi)
     expected = {
@@ -40,6 +44,7 @@ def test_escrow_preserves_deployed_abi():
             ("bool",),
             "nonpayable",
         ),
+        ("version", ()): (("uint256",), "pure"),
         ("unclaimed", ()): (("uint256",), "view"),
         ("locked", ()): (("uint256",), "view"),
         ("claim", ()): (("uint256",), "nonpayable"),
@@ -64,27 +69,9 @@ def test_escrow_preserves_deployed_abi():
         ("initialized", ()): (("bool",), "view"),
         ("owner", ()): (("address",), "view"),
     }
-    expected.update(
-        {
-            ("version", ()): (("uint256",), "pure"),
-            (
-                "initialize",
-                ("address", "address", "address", "uint256", "uint256", "uint256", "uint256", "bool", "bool"),
-            ): (("bool",), "nonpayable"),
-            ("asset", ()): (("address",), "view"),
-            ("vested_principal", ()): (("uint256",), "view"),
-            ("claimable_principal", ()): (("uint256",), "view"),
-            ("claimable_yield", ()): (("uint256",), "view"),
-            ("claim_yield", ()): (("uint256",), "nonpayable"),
-            ("total_principal", ()): (("uint256",), "view"),
-            ("principal_claimed", ()): (("uint256",), "view"),
-            ("yield_recipient", ()): (("address",), "view"),
-            ("yield_to_owner", ()): (("bool",), "view"),
-        }
-    )
     assert actual == expected
 
-    expected_events = {
+    assert events(abi) == {
         ("Claim", (("recipient", "address", True), ("claimed", "uint256", False))),
         (
             "Revoked",
@@ -98,61 +85,143 @@ def test_escrow_preserves_deployed_abi():
         ("Disowned", (("owner", "address", False),)),
         ("SetOpenClaim", (("state", "bool", False),)),
     }
-    expected_events.add(("YieldClaim", (("recipient", "address", True), ("claimed", "uint256", False))))
-    assert events(abi) == expected_events
-
-    constructor = next(item for item in abi if item["type"] == "constructor")
-    assert constructor["inputs"] == []
+    assert next(item for item in abi if item["type"] == "constructor")["inputs"] == []
 
 
-def test_factory_preserves_deployed_abi():
+def test_erc4626_escrow_uses_explicit_asset_and_share_units():
+    abi = compile_abi("VestingEscrow4626")
+    actual = functions(abi)
+    expected = {
+        (
+            "initialize",
+            ("address", "address", "address", "uint256", "uint256", "uint256", "uint256", "bool", "address"),
+        ): (("bool",), "nonpayable"),
+        ("version", ()): (("uint256",), "pure"),
+        ("vested_principal_assets", ()): (("uint256",), "view"),
+        ("claimable_principal_assets", ()): (("uint256",), "view"),
+        ("claimable_shares", ()): (("uint256",), "view"),
+        ("locked_shares", ()): (("uint256",), "view"),
+        ("claimable_yield_shares", ()): (("uint256",), "view"),
+        ("claim_principal", ()): (("uint256",), "nonpayable"),
+        ("claim_principal", ("address",)): (("uint256",), "nonpayable"),
+        ("claim_principal", ("address", "uint256")): (("uint256",), "nonpayable"),
+        ("claim_yield", ()): (("uint256",), "nonpayable"),
+        ("revoke", ()): ((), "nonpayable"),
+        ("revoke", ("uint256",)): ((), "nonpayable"),
+        ("revoke", ("uint256", "address")): ((), "nonpayable"),
+        ("renounce_revocation", ()): ((), "nonpayable"),
+        ("set_open_claim", ("bool",)): ((), "nonpayable"),
+        ("collect_dust", ("address",)): ((), "nonpayable"),
+        ("collect_dust", ("address", "address")): ((), "nonpayable"),
+        ("recipient", ()): (("address",), "view"),
+        ("vault", ()): (("address",), "view"),
+        ("asset_token", ()): (("address",), "view"),
+        ("start_time", ()): (("uint256",), "view"),
+        ("end_time", ()): (("uint256",), "view"),
+        ("cliff_length", ()): (("uint256",), "view"),
+        ("funded_shares", ()): (("uint256",), "view"),
+        ("claimed_shares", ()): (("uint256",), "view"),
+        ("principal_assets", ()): (("uint256",), "view"),
+        ("claimed_principal_assets", ()): (("uint256",), "view"),
+        ("disabled_at", ()): (("uint256",), "view"),
+        ("open_claim", ()): (("bool",), "view"),
+        ("initialized", ()): (("bool",), "view"),
+        ("owner", ()): (("address",), "view"),
+        ("yield_recipient", ()): (("address",), "view"),
+    }
+    assert actual == expected
+
+    assert events(abi) == {
+        (
+            "PrincipalClaim",
+            (
+                ("recipient", "address", True),
+                ("principal_assets", "uint256", False),
+                ("shares", "uint256", False),
+            ),
+        ),
+        ("YieldClaim", (("recipient", "address", True), ("shares", "uint256", False))),
+        (
+            "Revoked",
+            (
+                ("recipient", "address", True),
+                ("owner", "address", True),
+                ("beneficiary", "address", True),
+                ("principal_assets", "uint256", False),
+                ("shares", "uint256", False),
+                ("ts", "uint256", False),
+            ),
+        ),
+        ("RevocationRenounced", (("owner", "address", False),)),
+        ("SetOpenClaim", (("state", "bool", False),)),
+    }
+    assert next(item for item in abi if item["type"] == "constructor")["inputs"] == []
+
+
+def test_factory_exposes_two_explicit_deployment_paths():
     abi = compile_abi("VestingEscrowFactory")
     actual = functions(abi)
     prefix = ("address", "address", "uint256", "uint256")
-    optional = ("uint256", "uint256", "bool", "uint256", "address")
+    standard_optional = ("uint256", "uint256", "bool", "uint256", "address")
+    erc4626_optional = ("uint256", "uint256", "bool", "address", "address")
     expected = {
-        ("deploy_vesting_contract", prefix + optional[:count]): (("address",), "nonpayable")
-        for count in range(len(optional) + 1)
+        ("deploy_vesting_contract", prefix + standard_optional[:count]): (("address",), "nonpayable")
+        for count in range(len(standard_optional) + 1)
     }
     expected.update(
         {
+            ("deploy_erc4626_vesting", prefix + erc4626_optional[:count]): (("address",), "nonpayable")
+            for count in range(len(erc4626_optional) + 1)
+        }
+    )
+    expected.update(
+        {
             ("version", ()): (("uint256",), "pure"),
-            ("deploy_vesting_contract", prefix + optional + ("bool",)): (("address",), "nonpayable"),
-            ("TARGET", ()): (("address",), "view"),
+            ("STANDARD_TARGET", ()): (("address",), "view"),
+            ("ERC4626_TARGET", ()): (("address",), "view"),
             ("VYPER", ()): (("address",), "view"),
             ("escrows_length", ()): (("uint256",), "view"),
             ("escrows", ("uint256",)): (("address",), "view"),
+            ("is_erc4626", ("address",)): (("bool",), "view"),
         }
     )
     assert actual == expected
 
-    expected_event = (
-        "VestingEscrowCreated",
-        (
-            ("funder", "address", True),
-            ("token", "address", True),
-            ("recipient", "address", True),
-            ("escrow", "address", False),
-            ("amount", "uint256", False),
-            ("vesting_start", "uint256", False),
-            ("vesting_duration", "uint256", False),
-            ("cliff_length", "uint256", False),
-            ("open_claim", "bool", False),
-        ),
-    )
     assert events(abi) == {
-        expected_event,
         (
-            "VestingEscrowConfigured",
+            "TokenVestingEscrowCreated",
             (
                 ("escrow", "address", True),
-                ("owner", "address", True),
-                ("asset", "address", True),
-                ("yield_to_owner", "bool", False),
-                ("principal", "uint256", False),
+                ("token", "address", True),
+                ("recipient", "address", True),
+                ("funder", "address", False),
+                ("owner", "address", False),
+                ("amount", "uint256", False),
+                ("vesting_start", "uint256", False),
+                ("vesting_duration", "uint256", False),
+                ("cliff_length", "uint256", False),
+                ("open_claim", "bool", False),
+            ),
+        ),
+        (
+            "ERC4626VestingEscrowCreated",
+            (
+                ("escrow", "address", True),
+                ("vault", "address", True),
+                ("recipient", "address", True),
+                ("funder", "address", False),
+                ("owner", "address", False),
+                ("yield_recipient", "address", False),
+                ("asset_token", "address", False),
+                ("funded_shares", "uint256", False),
+                ("principal_assets", "uint256", False),
+                ("vesting_start", "uint256", False),
+                ("vesting_duration", "uint256", False),
+                ("cliff_length", "uint256", False),
+                ("open_claim", "bool", False),
             ),
         ),
     }
 
     constructor = next(item for item in abi if item["type"] == "constructor")
-    assert [arg["type"] for arg in constructor["inputs"]] == ["address", "address"]
+    assert [arg["type"] for arg in constructor["inputs"]] == ["address", "address", "address"]

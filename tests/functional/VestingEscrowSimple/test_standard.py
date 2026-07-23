@@ -20,7 +20,6 @@ def test_claims_standard_tokens(
     assert vesting.locked() == amount - expected
     assert vesting.claim(sender=recipient) == expected
     assert token.balanceOf(recipient) == expected
-    assert vesting.principal_claimed() == expected
     assert vesting.total_claimed() == expected
 
     chain.pending_timestamp = end_time
@@ -170,7 +169,8 @@ def test_cannot_revoke_after_completion(chain, vesting, owner, end_time):
 
 def test_revoke_clears_owner_before_transfer(
     chain,
-    vesting_target,
+    standard_target,
+    erc4626_target,
     vyper_donation,
     owner,
     recipient,
@@ -179,7 +179,13 @@ def test_revoke_clears_owner_before_transfer(
     start_time,
 ):
     token = deploy("test/AdversarialToken", sender=owner)
-    factory = deploy("VestingEscrowFactory", vesting_target, vyper_donation, sender=owner)
+    factory = deploy(
+        "VestingEscrowFactory",
+        standard_target,
+        erc4626_target,
+        vyper_donation,
+        sender=owner,
+    )
     token.mint(owner, amount, sender=owner)
     token.approve(factory, amount, sender=owner)
     escrow_address = factory.deploy_vesting_contract(
@@ -192,7 +198,6 @@ def test_revoke_clears_owner_before_transfer(
         True,
         0,
         owner,
-        False,
         sender=owner,
     )
     escrow = at("VestingEscrowSimple", escrow_address)
@@ -256,7 +261,8 @@ def test_collect_dust_preserves_vesting_reserve(vesting, token, owner, recipient
 
 
 def test_collect_dust_cannot_make_escrow_insolvent(
-    vesting_target,
+    standard_target,
+    erc4626_target,
     vyper_donation,
     owner,
     recipient,
@@ -265,7 +271,13 @@ def test_collect_dust_cannot_make_escrow_insolvent(
     start_time,
 ):
     token = deploy("test/AdversarialToken", sender=owner)
-    factory = deploy("VestingEscrowFactory", vesting_target, vyper_donation, sender=owner)
+    factory = deploy(
+        "VestingEscrowFactory",
+        standard_target,
+        erc4626_target,
+        vyper_donation,
+        sender=owner,
+    )
     token.mint(owner, amount, sender=owner)
     token.approve(factory, amount, sender=owner)
     escrow_address = factory.deploy_vesting_contract(
@@ -312,16 +324,10 @@ def test_extra_standard_tokens_remain_dust(
     assert token.balanceOf(vesting) == 0
 
 
-def test_standard_mode_never_calls_vault_methods(vesting, token):
-    assert vesting.asset() == token.address
-    assert vesting.claimable_yield() == 0
-    with boa.reverts(dev="yield disabled"):
-        vesting.claim_yield()
-
-
 def test_large_direct_donation_keeps_partial_claims_live(
     chain,
-    vesting_target,
+    standard_target,
+    erc4626_target,
     vyper_donation,
     owner,
     recipient,
@@ -333,7 +339,13 @@ def test_large_direct_donation_keeps_partial_claims_live(
     start = chain.pending_timestamp + 10
     attacker = accounts[4]
     token = deploy("test/MockToken", sender=owner)
-    factory = deploy("VestingEscrowFactory", vesting_target, vyper_donation, sender=owner)
+    factory = deploy(
+        "VestingEscrowFactory",
+        standard_target,
+        erc4626_target,
+        vyper_donation,
+        sender=owner,
+    )
 
     token.mint(owner, maximum, sender=owner)
     token.approve(factory, maximum, sender=owner)
@@ -347,7 +359,6 @@ def test_large_direct_donation_keeps_partial_claims_live(
         True,
         0,
         owner,
-        False,
         sender=owner,
     )
     escrow = at("VestingEscrowSimple", escrow_address)

@@ -62,8 +62,13 @@ def cliff_duration(duration):
 
 
 @pytest.fixture(scope="module")
-def vesting_target(owner):
+def standard_target(owner):
     return deploy("VestingEscrowSimple", sender=owner)
+
+
+@pytest.fixture(scope="module")
+def erc4626_target(owner):
+    return deploy("VestingEscrow4626", sender=owner)
 
 
 @pytest.fixture(scope="module")
@@ -73,10 +78,11 @@ def vyper_donation(accounts):
 
 
 @pytest.fixture(scope="module")
-def vesting_factory(owner, vesting_target, vyper_donation):
+def vesting_factory(owner, standard_target, erc4626_target, vyper_donation):
     return deploy(
         "VestingEscrowFactory",
-        vesting_target,
+        standard_target,
+        erc4626_target,
         vyper_donation,
         sender=owner,
     )
@@ -147,7 +153,6 @@ def vesting(
         open_claim,
         support_vyper,
         owner,
-        False,
         sender=owner,
     )
     return at("VestingEscrowSimple", escrow)
@@ -167,7 +172,7 @@ def yield_vesting(
 ):
     vault.mint(owner, amount, sender=owner)
     vault.approve(vesting_factory, amount, sender=owner)
-    escrow = vesting_factory.deploy_vesting_contract(
+    escrow = vesting_factory.deploy_erc4626_vesting(
         vault,
         recipient,
         amount,
@@ -175,9 +180,8 @@ def yield_vesting(
         start_time,
         cliff_duration,
         open_claim,
-        0,
         owner,
-        True,
+        owner,
         sender=owner,
     )
-    return at("VestingEscrowSimple", escrow)
+    return at("VestingEscrow4626", escrow)

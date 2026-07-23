@@ -1,34 +1,43 @@
 # Yearn Vesting Escrow
 
-Vesting escrows for standard ERC-20 tokens and optional ERC-4626 vault-share
-principal accounting.
+Vesting escrows for standard ERC-20 tokens and ERC-4626 vault shares.
 
-The unreleased version 2 contracts preserve the deployed v0.3.0 lifecycle
-while adding an opt-in `yield_to_owner` mode:
+The unreleased version 2 has two dedicated implementations behind one factory:
 
-- funding and payouts remain in the supplied ERC-20 token;
-- in yield mode that token is an ERC-4626 wrapper share;
-- the recipient receives vested principal shares;
-- `claim_yield()` sends the original owner only shares representing value above
-  remaining principal;
-- revocation returns unvested principal shares and any available yield;
+- `VestingEscrowSimple.vy` vests a fixed amount of an ordinary ERC-20 token;
+- `VestingEscrow4626.vy` vests principal denominated in the vault's underlying
+  asset while holding and paying ERC-4626 shares;
+- `VestingEscrowFactory.vy` deploys minimal proxies from separate immutable
+  standard-token and ERC-4626 targets.
+
+The factory exposes `deploy_vesting_contract()` for standard tokens and
+`deploy_erc4626_vesting()` for vault shares. Both implementations share only
+stateless vesting arithmetic through `modules/vesting_math.vy`; their storage,
+external APIs, and accounting remain separate.
+
+The ERC-4626 escrow records principal in underlying-asset units at
+initialization. Its API makes units explicit:
+
+- `claimable_principal_assets()` and `vested_principal_assets()` report assets;
+- `claimable_shares()` and `locked_shares()` report vault shares;
+- `claim_principal()` pays vested principal in shares;
+- `claim_yield()` sends shares worth more than the remaining principal to a
+  fixed `yield_recipient`, which is independent from the revocation owner;
+- revocation returns unvested principal shares and sends available yield to the
+  fixed yield recipient;
 - vault losses are borne proportionally by outstanding principal without
-  blocking claims;
-- `claim_yield()` is permissionless, but always pays the fixed original owner.
+  blocking claims.
 
 Supported tokens must remain transferable and move the exact requested token
 or share amount. Pauses, blacklists, transfer fees, and incompatible token or
 vault upgrades are outside the accounting model and must be excluded during
 deployment review.
 
-Yield mode targets reviewed Yearn-style vaults with conventional share
+ERC-4626 escrows target reviewed Yearn-style vaults with conventional share
 precision. Each lifecycle transition can differ by less than one raw share due
 to ERC-4626 floor rounding; the contract deliberately accepts that negligible
 bound instead of maintaining cross-call rounding checkpoints. Coarse-share
 vaults are outside the supported deployment policy.
-
-`VestingEscrowSimple.vy` is the sole implementation for both modes.
-`VestingEscrowFactory.vy` funds and initializes minimal proxies of that target.
 
 ## Development
 

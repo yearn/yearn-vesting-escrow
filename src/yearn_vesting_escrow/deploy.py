@@ -1,4 +1,4 @@
-"""Deploy the escrow implementation and factory.
+"""Deploy both escrow implementations and the factory.
 
 This is development tooling, not the production rollout script. Network secrets
 are read from the environment and never accepted as command-line values.
@@ -37,18 +37,21 @@ def configure_environment(rpc_url, private_key_env, expected_chain_id):
 
 
 def deploy_contracts(deployer, vyper_donate):
-    target = boa.load(CONTRACTS / "VestingEscrowSimple.vy", sender=deployer)
+    standard_target = boa.load(CONTRACTS / "VestingEscrowSimple.vy", sender=deployer)
+    erc4626_target = boa.load(CONTRACTS / "VestingEscrow4626.vy", sender=deployer)
     factory = boa.load(
         CONTRACTS / "VestingEscrowFactory.vy",
-        target,
+        standard_target,
+        erc4626_target,
         vyper_donate,
         sender=deployer,
     )
 
-    assert factory.TARGET() == target.address
+    assert factory.STANDARD_TARGET() == standard_target.address
+    assert factory.ERC4626_TARGET() == erc4626_target.address
     assert factory.VYPER() == vyper_donate
-    assert target.version() == factory.version() == 2
-    return target, factory
+    assert standard_target.version() == erc4626_target.version() == factory.version() == 2
+    return standard_target, erc4626_target, factory
 
 
 def main():
@@ -64,7 +67,7 @@ def main():
         args.private_key_env,
         args.expected_chain_id,
     )
-    target, factory = deploy_contracts(deployer, args.vyper_donate)
+    standard_target, erc4626_target, factory = deploy_contracts(deployer, args.vyper_donate)
 
     print(
         json.dumps(
@@ -72,7 +75,8 @@ def main():
                 "chain_id": chain_id,
                 "deployer": str(deployer),
                 "vyper_donate": args.vyper_donate,
-                "target": str(target.address),
+                "standard_target": str(standard_target.address),
+                "erc4626_target": str(erc4626_target.address),
                 "factory": str(factory.address),
             },
             indent=2,
