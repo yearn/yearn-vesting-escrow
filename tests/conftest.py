@@ -1,13 +1,24 @@
-import ape
-from ape.types import AddressType
+import boa
 import pytest
+
+from tests.helpers import Chain, at, deploy
 
 YEAR = int(365.25 * 24 * 60 * 60)
 
 
 @pytest.fixture(scope="session")
+def chain():
+    return Chain()
+
+
+@pytest.fixture(scope="session")
+def accounts():
+    return [boa.env.generate_address(f"account-{index}") for index in range(10)]
+
+
+@pytest.fixture(scope="session")
 def duration():
-    yield 3 * YEAR
+    return 3 * YEAR
 
 
 @pytest.fixture(scope="session")
@@ -17,83 +28,97 @@ def owner(accounts):
 
 @pytest.fixture(scope="session")
 def recipient(accounts):
-    yield accounts[1]
+    return accounts[1]
 
 
 @pytest.fixture(scope="session")
 def cold_storage(accounts):
-    yield accounts[2]
+    return accounts[2]
 
 
 @pytest.fixture(scope="module")
-def token(project, owner):
-    yield owner.deploy(project.MockToken)
+def token(owner):
+    return deploy("test/MockToken", sender=owner)
 
 
 @pytest.fixture(scope="module")
-def another_token(project, owner):
-    return owner.deploy(project.MockToken)
+def another_token(owner):
+    return deploy("test/MockToken", sender=owner)
 
 
 @pytest.fixture(scope="module")
 def start_time(chain):
-    yield chain.pending_timestamp + YEAR
+    return chain.pending_timestamp + YEAR
 
 
 @pytest.fixture(scope="module")
 def end_time(start_time, duration):
-    yield int(start_time + duration)
+    return start_time + duration
 
 
 @pytest.fixture(scope="module")
 def cliff_duration(duration):
-    yield duration // 6
+    return duration // 6
 
 
 @pytest.fixture(scope="module")
-def vesting_target(project, owner):
-    yield owner.deploy(project.VestingEscrowSimple)
+def vesting_target(owner):
+    return deploy("VestingEscrowSimple", sender=owner)
 
 
 @pytest.fixture(scope="module")
 def vyper_donation(accounts):
     # vyperlang.eth
-    yield accounts[3]
+    return accounts[3]
 
 
 @pytest.fixture(scope="module")
-def vesting_factory(project, owner, vesting_target, vyper_donation):
-    yield owner.deploy(project.VestingEscrowFactory, vesting_target, vyper_donation)
+def vesting_factory(owner, vesting_target, vyper_donation):
+    return deploy(
+        "VestingEscrowFactory",
+        vesting_target,
+        vyper_donation,
+        sender=owner,
+    )
+
+
+@pytest.fixture(scope="module")
+def asset_token(owner):
+    return deploy("test/MockToken", sender=owner)
+
+
+@pytest.fixture(scope="module")
+def vault(owner, asset_token):
+    return deploy("test/MockERC4626", asset_token, sender=owner)
 
 
 @pytest.fixture(scope="module")
 def amount():
-    yield 100 * 10**18
+    return 100 * 10**18
 
 
 @pytest.fixture(scope="module")
 def another_amount():
-    yield 10 * 10**18
+    return 10 * 10**18
 
 
 @pytest.fixture(scope="module")
 def open_claim():
-    yield True
+    return True
 
 
 @pytest.fixture(scope="module")
 def support_vyper():
-    yield 10
+    return 10
 
 
 @pytest.fixture(scope="module")
 def support_amount(amount, support_vyper):
-    yield amount * support_vyper // 10_000
+    return amount * support_vyper // 10_000
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture
 def vesting(
-    project,
     owner,
     recipient,
     vesting_factory,
@@ -112,7 +137,7 @@ def vesting(
     another_token.mint(owner, another_amount, sender=owner)
 
     token.approve(vesting_factory, amount + support_amount, sender=owner)
-    receipt = vesting_factory.deploy_vesting_contract(
+    escrow = vesting_factory.deploy_vesting_contract(
         token,
         recipient,
         amount,
@@ -121,7 +146,38 @@ def vesting(
         cliff_duration,
         open_claim,
         support_vyper,
+        owner,
+        False,
         sender=owner,
     )
-    escrow = vesting_factory.VestingEscrowCreated.from_receipt(receipt)[0]
-    yield project.VestingEscrowSimple.at(escrow.escrow)
+    return at("VestingEscrowSimple", escrow)
+
+
+@pytest.fixture
+def yield_vesting(
+    owner,
+    recipient,
+    vesting_factory,
+    vault,
+    amount,
+    duration,
+    start_time,
+    cliff_duration,
+    open_claim,
+):
+    vault.mint(owner, amount, sender=owner)
+    vault.approve(vesting_factory, amount, sender=owner)
+    escrow = vesting_factory.deploy_vesting_contract(
+        vault,
+        recipient,
+        amount,
+        duration,
+        start_time,
+        cliff_duration,
+        open_claim,
+        0,
+        owner,
+        True,
+        sender=owner,
+    )
+    return at("VestingEscrowSimple", escrow)

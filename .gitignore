@@ -1,4 +1,4 @@
-# Ape stuff
+# Contract build caches
 .build/
 .cache/
 build

@@ -2,41 +2,39 @@ name: Test
 
 on:
   push:
-    branches:
-      - master
-      - develop
   pull_request:
 
+permissions:
+  contents: read
+
 concurrency:
-  # Cancel older, in-progress jobs from the same PR, same workflow.
-  # use run_id if the job is triggered by a push to ensure
-  # push-triggered jobs to not get canceled.
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
 
 jobs:
-  functional:
+  contracts:
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v3
-      - uses: foundry-rs/foundry-toolchain@v1
-      - uses: ApeWorX/github-action@v2.4
-        with:
-          python-version: "3.11.4"
-          ape-plugins-list: "."
-      - run: ape compile --size
-      - run: ape test tests/functional/ --gas --coverage
+      - uses: actions/checkout@v4
 
-  integration:
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v3
-      - uses: foundry-rs/foundry-toolchain@v1
-      - uses: ApeWorX/github-action@v2.4
+      - uses: actions/setup-python@v5
         with:
-          python-version: "3.11.4"
-          ape-plugins-list: "."
-      - run: ape compile --size
-      - run: ape test tests/integration/ -s
+          python-version: "3.11.9"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m venv .venv
+          .venv/bin/python -m pip install --upgrade pip
+          .venv/bin/python -m pip install -r requirements.txt
+
+      - name: Compile contracts
+        run: .venv/bin/python scripts/compile.py
+
+      - name: Run functional tests
+        run: .venv/bin/pytest tests/functional/ --gas-profile
+
+      - name: Run property tests
+        run: .venv/bin/pytest tests/integration/
