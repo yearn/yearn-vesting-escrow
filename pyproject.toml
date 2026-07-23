@@ -1,6 +1,6 @@
 [project]
 name = "yearn-vesting-escrow"
-version = "0.0.0"
+version = "0.4.0"
 description = "Development tooling for Yearn vesting escrow contracts"
 readme = "readme.md"
 requires-python = ">=3.11,<3.12"
