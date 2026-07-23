@@ -76,31 +76,33 @@ Production deployment requires an independent audit, a reviewed deployment
 manifest, source verification, and low-value standard-token and ERC-4626
 canaries.
 
+## Escrow manager
+
+Wavey's [Vesting Escrow app](https://vest.wavey.info/) provides an interface to
+find and manage escrows deployed by the current Yearn factory and the LlamaPay
+v2 factory. The app and its Ethereum event indexer are
+[open source](https://github.com/wavey0x/vesting-escrow-app).
+
 ## Production deployments
 
 The `version() == 2` contracts on `master` have not yet been deployed or
 audited. This contract version is separate from the historical v0.x release
 tags below. Existing factories and escrows remain immutable and unaffected.
 
-The [Vesting Escrow app](https://vest.wavey.info/) indexes escrows from the
-current Yearn factory and a compatible Curve deployment. Its
-[source and indexer](https://github.com/wavey0x/vesting-escrow-app) track both
-factories. Older Yearn deployments are listed below for historical reference
-but are not indexed by the app.
-
 ### [v0.3.0](https://github.com/yearn/yearn-vesting-escrow/tree/v0.3.0)
 
-This is the current Yearn factory used by the app's create flow.
+This is the current Yearn factory.
 
 - Factory: [`0x200C92Dd85730872Ab6A1e7d5E40A067066257cF`](https://etherscan.io/address/0x200c92dd85730872ab6a1e7d5e40a067066257cf#code)
 - Implementation: [`0x9692F652A3048eb7F5074e12B907F20d33F37a01`](https://etherscan.io/address/0x9692f652a3048eb7f5074e12b907f20d33f37a01#code)
 - Audit: [MixBytes, 2023-10-13](https://github.com/yearn/yearn-security/tree/master/audits/20231013_Mixbytes_yearn_vesting_escrow)
 
-### Compatible Curve deployment
+### [LlamaPay v2](https://github.com/LlamaPay/yearn-vesting-escrow) (derived from v0.3.0)
 
-The app also indexes this production deployment. It preserves the v0.3.0
-consumer interface while adding an escrow registry and several hardening
-changes.
+LlamaPay forked this repository at
+[v0.3.0 (`d14eed1`)](https://github.com/yearn/yearn-vesting-escrow/commit/d14eed16f5b131bc35c58df2b8b4a03427928ef1)
+and retained its consumer interface. Its v2 adds an escrow registry, makes the
+Vyper donation opt-in by default, and hardens revoke and dust handling.
 
 - Factory: [`0xcf61782465Ff973638143d6492B51A85986aB347`](https://etherscan.io/address/0xcf61782465ff973638143d6492b51a85986ab347#code)
 - Implementation: [`0x9dd5cF263327e2D6a608da8c30368Eb27514bAD2`](https://etherscan.io/address/0x9dd5cf263327e2d6a608da8c30368eb27514bad2#code)
