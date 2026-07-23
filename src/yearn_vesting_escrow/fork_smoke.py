@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Exercise vault-share vesting against a real ERC-4626 on a pinned fork."""
 
 import os
@@ -8,7 +7,7 @@ import warnings
 import boa
 
 
-CONTRACTS = Path(__file__).resolve().parents[1] / "contracts"
+CONTRACTS = Path(__file__).resolve().parents[2] / "contracts"
 SUSDS = "0xa3931d71877C0E7a3148CB7Eb4463524FEc27fbD"
 SUSDS_HOLDER = "0xfB4f83C3923EAB7B6254Cd2399C206109970f95E"
 DEFAULT_BLOCK = 25_587_000
@@ -98,7 +97,3 @@ def main():
     escrow.claim(sender=recipient)
     assert vault.balanceOf(escrow) == 0
     print(f"sUSDS fork lifecycle passed at Ethereum block {block_identifier}")
-
-
-if __name__ == "__main__":
-    main()

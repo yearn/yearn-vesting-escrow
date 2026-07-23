@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Deploy the escrow implementation and factory.
 
 This is development tooling, not the production rollout script. Network secrets
@@ -14,7 +13,7 @@ import boa
 from eth_account import Account
 
 
-CONTRACTS = Path(__file__).resolve().parents[1] / "contracts"
+CONTRACTS = Path(__file__).resolve().parents[2] / "contracts"
 VYPER_DONATE = "0x70CCBE10F980d80b7eBaab7D2E3A73e87D67B775"
 
 
@@ -79,7 +78,3 @@ def main():
             indent=2,
         )
     )
-
-
-if __name__ == "__main__":
-    main()
