@@ -2,6 +2,7 @@
 .build/
 .cache/
 build
+dist/
 
 # Python
 .env

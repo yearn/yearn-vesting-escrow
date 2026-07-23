@@ -1,5 +1,0 @@
-eth-account==0.13.7
-hypothesis==6.156.6
-pytest==8.4.2
-titanoboa==0.2.8
-vyper==0.4.3

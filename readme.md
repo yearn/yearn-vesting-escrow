@@ -35,26 +35,26 @@ vaults are outside the supported deployment policy.
 The contracts use Vyper 0.4.3 and Titanoboa on Python 3.11:
 
 ```sh
-./setup-python.sh
-.venv/bin/python scripts/compile.py
-.venv/bin/pytest tests/functional/ --gas-profile
-.venv/bin/pytest tests/integration/
+uv sync --locked
+uv run --locked vesting-escrow-compile
+uv run --locked pytest tests/functional/ --gas-profile
+uv run --locked pytest tests/integration/
 ```
 
 Run the pinned real-vault smoke test with an archive-capable Ethereum RPC:
 
 ```sh
-MAINNET_RPC=https://... .venv/bin/python scripts/fork_smoke.py
+MAINNET_RPC=https://... uv run --locked vesting-escrow-fork-smoke
 ```
 
 The smoke test defaults to sUSDS at Ethereum block `25,587,000`. Set
 `MAINNET_BLOCK`, `ERC4626_VAULT`, `ERC4626_HOLDER`, and `ERC4626_AMOUNT` to use
 another standards-compliant vault and matching pinned state.
 
-After changing `requirements.in`, regenerate the lock file with:
+After changing dependencies in `pyproject.toml`, regenerate the lock file with:
 
 ```sh
-./update-lock.sh
+uv lock
 ```
 
 ## Development deployment
@@ -62,14 +62,14 @@ After changing `requirements.in`, regenerate the lock file with:
 Deploy locally without a key:
 
 ```sh
-.venv/bin/python scripts/deploy.py
+uv run --locked vesting-escrow-deploy
 ```
 
 For a development network, secrets are read only from the environment:
 
 ```sh
 RPC_URL=https://... DEPLOYER_PRIVATE_KEY=... \
-  .venv/bin/python scripts/deploy.py --expected-chain-id 11155111
+  uv run --locked vesting-escrow-deploy --expected-chain-id 11155111
 ```
 
 Production deployment requires an independent audit, a reviewed deployment

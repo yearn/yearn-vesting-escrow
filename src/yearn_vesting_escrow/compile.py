@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Compile every contract with the version pinned by its source pragma."""
 
 from pathlib import Path
@@ -6,7 +5,7 @@ from pathlib import Path
 import boa
 
 
-CONTRACTS = Path(__file__).resolve().parents[1] / "contracts"
+CONTRACTS = Path(__file__).resolve().parents[2] / "contracts"
 
 
 def pragma(path):
@@ -22,7 +21,3 @@ def main():
         boa.load_partial(source)
         print(f"compiled {source.relative_to(CONTRACTS)} ({pragma(source)})")
     print(f"compiled {len(sources)} contracts")
-
-
-if __name__ == "__main__":
-    main()

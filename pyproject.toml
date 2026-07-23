@@ -1,3 +1,30 @@
+[project]
+name = "yearn-vesting-escrow"
+version = "0.0.0"
+description = "Development tooling for Yearn vesting escrow contracts"
+readme = "readme.md"
+requires-python = ">=3.11,<3.12"
+dependencies = [
+  "eth-account==0.13.7",
+  "titanoboa==0.2.8",
+  "vyper==0.4.3",
+]
+
+[project.scripts]
+vesting-escrow-compile = "yearn_vesting_escrow.compile:main"
+vesting-escrow-deploy = "yearn_vesting_escrow.deploy:main"
+vesting-escrow-fork-smoke = "yearn_vesting_escrow.fork_smoke:main"
+
+[dependency-groups]
+dev = [
+  "hypothesis==6.156.6",
+  "pytest==8.4.2",
+]
+
+[build-system]
+requires = ["uv_build>=0.11.21,<0.12.0"]
+build-backend = "uv_build"
+
 [tool.black]
 line-length = 120
 
