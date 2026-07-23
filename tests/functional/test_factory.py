@@ -1,7 +1,13 @@
 import boa
+from eth_utils import keccak
 import pytest
 
 from tests.helpers import ZERO_ADDRESS, at, deploy, events
+
+
+def first_create_address(sender):
+    sender_bytes = bytes.fromhex(str(sender).removeprefix("0x"))
+    return "0x" + keccak(b"\xd6\x94" + sender_bytes + b"\x01")[-20:].hex()
 
 
 def deploy_standard(
@@ -16,7 +22,6 @@ def deploy_standard(
     *,
     cliff=0,
     open_claim=True,
-    support_vyper=0,
 ):
     return factory.deploy_vesting_contract(
         token,
@@ -26,7 +31,6 @@ def deploy_standard(
         start,
         cliff,
         open_claim,
-        support_vyper,
         owner,
         sender=funder,
     )
@@ -64,12 +68,13 @@ def test_factory_configuration(
     vesting_factory,
     standard_target,
     erc4626_target,
-    vyper_donation,
+    owner,
 ):
-    assert vesting_factory.version() == 2
     assert vesting_factory.STANDARD_TARGET() == standard_target.address
     assert vesting_factory.ERC4626_TARGET() == erc4626_target.address
-    assert vesting_factory.VYPER() == vyper_donation
+    assert standard_target.implementation_kind() == 1
+    assert erc4626_target.implementation_kind() == 2
+    assert vesting_factory.escrow_kind(owner) == 0
 
 
 def test_minimal_deploy_overloads(
@@ -107,7 +112,7 @@ def test_minimal_deploy_overloads(
     assert standard.start_time() == chain.pending_timestamp
     assert standard.owner() == owner
     assert erc4626.start_time() == chain.pending_timestamp
-    assert erc4626.owner() == owner
+    assert erc4626.revocation_owner() == owner
     assert erc4626.yield_recipient() == owner
 
 
@@ -152,8 +157,7 @@ def test_deploys_standard_escrow(
 
     assert vesting_factory.escrows_length() == 1
     assert vesting_factory.escrows(0) == escrow.address
-    assert not vesting_factory.is_erc4626(escrow)
-    assert escrow.version() == 2
+    assert vesting_factory.escrow_kind(escrow) == 1
     assert escrow.initialized()
     assert escrow.token() == token.address
     assert escrow.recipient() == recipient
@@ -195,7 +199,7 @@ def test_deploys_erc4626_escrow_with_distinct_roles(
     assert event.vault == vault.address
     assert event.recipient == recipient
     assert event.funder == owner
-    assert event.owner == owner
+    assert event.revocation_owner == owner
     assert event.yield_recipient == cold_storage
     assert event.asset_token == asset_token.address
     assert event.funded_shares == amount
@@ -206,45 +210,14 @@ def test_deploys_erc4626_escrow_with_distinct_roles(
 
     assert vesting_factory.escrows_length() == 1
     assert vesting_factory.escrows(0) == escrow.address
-    assert vesting_factory.is_erc4626(escrow)
-    assert escrow.version() == 2
+    assert vesting_factory.escrow_kind(escrow) == 2
     assert escrow.vault() == vault.address
     assert escrow.asset_token() == asset_token.address
     assert escrow.funded_shares() == amount
     assert escrow.principal_assets() == amount
-    assert escrow.owner() == owner
+    assert escrow.revocation_owner() == owner
     assert escrow.yield_recipient() == cold_storage
     assert vault.balanceOf(escrow) == amount
-
-
-def test_standard_vyper_donation(
-    vesting_factory,
-    vyper_donation,
-    owner,
-    recipient,
-    token,
-    amount,
-    duration,
-    start_time,
-):
-    support = 25
-    donation = amount * support // 10_000
-    token.mint(owner, amount + donation, sender=owner)
-    token.approve(vesting_factory, amount + donation, sender=owner)
-
-    deploy_standard(
-        vesting_factory,
-        token,
-        owner,
-        recipient,
-        owner,
-        amount,
-        duration,
-        start_time,
-        support_vyper=support,
-    )
-
-    assert token.balanceOf(vyper_donation) == donation
 
 
 def test_zero_owner_is_allowed_for_irrevocable_escrows(
@@ -285,14 +258,15 @@ def test_zero_owner_is_allowed_for_irrevocable_escrows(
     )
 
     assert at("VestingEscrowSimple", standard).owner() == ZERO_ADDRESS
-    assert at("VestingEscrow4626", erc4626).owner() == ZERO_ADDRESS
+    assert at("VestingEscrow4626", erc4626).revocation_owner() == ZERO_ADDRESS
 
 
-def test_erc4626_requires_yield_recipient(
+def test_erc4626_rejects_invalid_yield_recipients(
     vesting_factory,
     owner,
     recipient,
     vault,
+    asset_token,
     amount,
     duration,
     start_time,
@@ -300,18 +274,39 @@ def test_erc4626_requires_yield_recipient(
     vault.mint(owner, amount, sender=owner)
     vault.approve(vesting_factory, amount, sender=owner)
 
-    with boa.reverts(dev="invalid yield recipient"):
-        deploy_erc4626(
+    proxy_address = first_create_address(vesting_factory.address)
+    with boa.env.anchor():
+        deployed = deploy_erc4626(
             vesting_factory,
             vault,
             owner,
             recipient,
             owner,
-            ZERO_ADDRESS,
+            owner,
             amount,
             duration,
             start_time,
         )
+        assert str(deployed).lower() == proxy_address.lower()
+
+    for invalid_recipient in (
+        ZERO_ADDRESS,
+        proxy_address,
+        vault.address,
+        asset_token.address,
+    ):
+        with boa.reverts():
+            deploy_erc4626(
+                vesting_factory,
+                vault,
+                owner,
+                recipient,
+                owner,
+                invalid_recipient,
+                amount,
+                duration,
+                start_time,
+            )
 
 
 @pytest.mark.parametrize(
@@ -481,6 +476,33 @@ def test_erc4626_rejects_zero_or_excessive_principal(
         )
 
 
+def test_erc4626_rejects_coarse_roundtrip_conversion(
+    vesting_factory,
+    owner,
+    recipient,
+    asset_token,
+    duration,
+    start_time,
+):
+    vault = deploy("test/MockERC4626", asset_token, sender=owner)
+    vault.set_assets_per_share(15 * 10**17, sender=owner)
+    vault.mint(owner, 1, sender=owner)
+    vault.approve(vesting_factory, 1, sender=owner)
+
+    with boa.reverts():
+        deploy_erc4626(
+            vesting_factory,
+            vault,
+            owner,
+            recipient,
+            owner,
+            owner,
+            1,
+            duration,
+            start_time,
+        )
+
+
 def test_implementations_cannot_be_initialized(
     standard_target,
     erc4626_target,
@@ -523,7 +545,6 @@ def test_implementations_cannot_be_initialized(
 def test_factory_rejects_invalid_targets(
     standard_target,
     erc4626_target,
-    vyper_donation,
     owner,
 ):
     with boa.reverts(dev="duplicate target"):
@@ -531,7 +552,6 @@ def test_factory_rejects_invalid_targets(
             "VestingEscrowFactory",
             standard_target,
             standard_target,
-            vyper_donation,
             sender=owner,
         )
 
@@ -540,6 +560,13 @@ def test_factory_rejects_invalid_targets(
             "VestingEscrowFactory",
             ZERO_ADDRESS,
             erc4626_target,
-            vyper_donation,
+            sender=owner,
+        )
+
+    with boa.reverts(dev="invalid standard target"):
+        deploy(
+            "VestingEscrowFactory",
+            erc4626_target,
+            standard_target,
             sender=owner,
         )

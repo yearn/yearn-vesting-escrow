@@ -72,18 +72,11 @@ def erc4626_target(owner):
 
 
 @pytest.fixture(scope="module")
-def vyper_donation(accounts):
-    # vyperlang.eth
-    return accounts[3]
-
-
-@pytest.fixture(scope="module")
-def vesting_factory(owner, standard_target, erc4626_target, vyper_donation):
+def vesting_factory(owner, standard_target, erc4626_target):
     return deploy(
         "VestingEscrowFactory",
         standard_target,
         erc4626_target,
-        vyper_donation,
         sender=owner,
     )
 
@@ -113,16 +106,6 @@ def open_claim():
     return True
 
 
-@pytest.fixture(scope="module")
-def support_vyper():
-    return 10
-
-
-@pytest.fixture(scope="module")
-def support_amount(amount, support_vyper):
-    return amount * support_vyper // 10_000
-
-
 @pytest.fixture
 def vesting(
     owner,
@@ -131,18 +114,16 @@ def vesting(
     token,
     another_token,
     amount,
-    support_amount,
     another_amount,
     start_time,
     cliff_duration,
     open_claim,
     duration,
-    support_vyper,
 ):
-    token.mint(owner, amount + support_amount, sender=owner)
+    token.mint(owner, amount, sender=owner)
     another_token.mint(owner, another_amount, sender=owner)
 
-    token.approve(vesting_factory, amount + support_amount, sender=owner)
+    token.approve(vesting_factory, amount, sender=owner)
     escrow = vesting_factory.deploy_vesting_contract(
         token,
         recipient,
@@ -151,7 +132,6 @@ def vesting(
         start_time,
         cliff_duration,
         open_claim,
-        support_vyper,
         owner,
         sender=owner,
     )

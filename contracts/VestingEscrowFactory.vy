@@ -22,12 +22,12 @@ interface IVestingEscrowSimple:
         cliff_length: uint256,
         open_claim: bool,
     ) -> bool: nonpayable
-    def version() -> uint256: pure
+    def implementation_kind() -> uint256: pure
 
 
 interface IVestingEscrow4626:
     def initialize(
-        owner: address,
+        revocation_owner: address,
         vault: address,
         recipient: address,
         funded_shares: uint256,
@@ -39,7 +39,7 @@ interface IVestingEscrow4626:
     ) -> bool: nonpayable
     def asset_token() -> address: view
     def principal_assets() -> uint256: view
-    def version() -> uint256: pure
+    def implementation_kind() -> uint256: pure
 
 
 event TokenVestingEscrowCreated:
@@ -60,7 +60,7 @@ event ERC4626VestingEscrowCreated:
     vault: indexed(IERC20)
     recipient: indexed(address)
     funder: address
-    owner: address
+    revocation_owner: address
     yield_recipient: address
     asset_token: address
     funded_shares: uint256
@@ -71,38 +71,34 @@ event ERC4626VestingEscrowCreated:
     open_claim: bool
 
 
-BPS: constant(uint256) = 10_000
 MAX_DURATION: constant(uint256) = 2**64 - 1
+TOKEN_ESCROW_KIND: constant(uint256) = 1
+ERC4626_ESCROW_KIND: constant(uint256) = 2
 
 STANDARD_TARGET: public(immutable(address))
 ERC4626_TARGET: public(immutable(address))
-VYPER: public(immutable(address))
 escrows_length: public(uint256)
 escrows: public(address[1000000000000])
-is_erc4626: public(HashMap[address, bool])
+escrow_kind: public(HashMap[address, uint256])
 
 
 @deploy
 def __init__(
     standard_target: address,
     erc4626_target: address,
-    vyper_donate: address,
 ):
     assert standard_target.is_contract  # dev: invalid standard target
     assert erc4626_target.is_contract  # dev: invalid erc4626 target
     assert standard_target != erc4626_target  # dev: duplicate target
-    assert staticcall IVestingEscrowSimple(standard_target).version() == 2  # dev: invalid standard version
-    assert staticcall IVestingEscrow4626(erc4626_target).version() == 2  # dev: invalid erc4626 version
+    assert (
+        staticcall IVestingEscrowSimple(standard_target).implementation_kind() == TOKEN_ESCROW_KIND
+    )  # dev: invalid standard target
+    assert (
+        staticcall IVestingEscrow4626(erc4626_target).implementation_kind() == ERC4626_ESCROW_KIND
+    )  # dev: invalid erc4626 target
 
     STANDARD_TARGET = standard_target
     ERC4626_TARGET = erc4626_target
-    VYPER = vyper_donate
-
-
-@external
-@pure
-def version() -> uint256:
-    return 2
 
 
 @internal
@@ -138,31 +134,11 @@ def _fund(
 
 
 @internal
-def _donate(
-    token: IERC20,
-    funder: address,
-    amount: uint256,
-    support_vyper: uint256,
-):
-    assert support_vyper <= BPS  # dev: donation exceeds 100%
-    if support_vyper > 0:
-        assert VYPER != empty(address)  # dev: invalid donation recipient
-        donation: uint256 = amount * support_vyper // BPS
-        if donation > 0:
-            assert extcall token.transferFrom(
-                funder,
-                VYPER,
-                donation,
-                default_return_value=True,
-            )  # dev: donation failed
-
-
-@internal
-def _record(escrow: address, erc4626: bool):
+def _record(escrow: address, kind: uint256):
     index: uint256 = self.escrows_length
     self.escrows[index] = escrow
     self.escrows_length = index + 1
-    self.is_erc4626[escrow] = erc4626
+    self.escrow_kind[escrow] = kind
 
 
 @external
@@ -175,7 +151,6 @@ def deploy_vesting_contract(
     vesting_start: uint256 = block.timestamp,
     cliff_length: uint256 = 0,
     open_claim: bool = True,
-    support_vyper: uint256 = 0,
     owner: address = msg.sender,
 ) -> address:
     """Deploy a standard ERC-20 vesting escrow."""
@@ -193,8 +168,7 @@ def deploy_vesting_contract(
         cliff_length,
         open_claim,
     )
-    self._donate(token, msg.sender, amount, support_vyper)
-    self._record(escrow, False)
+    self._record(escrow, TOKEN_ESCROW_KIND)
 
     log TokenVestingEscrowCreated(
         escrow=escrow,
@@ -221,17 +195,25 @@ def deploy_erc4626_vesting(
     vesting_start: uint256 = block.timestamp,
     cliff_length: uint256 = 0,
     open_claim: bool = True,
-    owner: address = msg.sender,
+    revocation_owner: address = msg.sender,
     yield_recipient: address = msg.sender,
 ) -> address:
     """Deploy an ERC-4626 principal vesting escrow."""
-    self._validate(vault, recipient, funded_shares, vesting_duration, vesting_start, cliff_length, owner)
+    self._validate(
+        vault,
+        recipient,
+        funded_shares,
+        vesting_duration,
+        vesting_start,
+        cliff_length,
+        revocation_owner,
+    )
     assert yield_recipient != empty(address)  # dev: invalid yield recipient
 
     escrow: address = create_minimal_proxy_to(ERC4626_TARGET)
     self._fund(vault, msg.sender, escrow, funded_shares)
     assert extcall IVestingEscrow4626(escrow).initialize(
-        owner,
+        revocation_owner,
         vault.address,
         recipient,
         funded_shares,
@@ -241,14 +223,14 @@ def deploy_erc4626_vesting(
         open_claim,
         yield_recipient,
     )
-    self._record(escrow, True)
+    self._record(escrow, ERC4626_ESCROW_KIND)
 
     log ERC4626VestingEscrowCreated(
         escrow=escrow,
         vault=vault,
         recipient=recipient,
         funder=msg.sender,
-        owner=owner,
+        revocation_owner=revocation_owner,
         yield_recipient=yield_recipient,
         asset_token=staticcall IVestingEscrow4626(escrow).asset_token(),
         funded_shares=funded_shares,

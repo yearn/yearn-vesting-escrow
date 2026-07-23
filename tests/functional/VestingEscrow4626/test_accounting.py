@@ -71,7 +71,7 @@ def test_claim_accepts_recipient_selected_beneficiary(
     assert vault.balanceOf(cold_storage) == claimed
 
 
-def test_share_cap_is_all_or_nothing(
+def test_partial_principal_claim_is_accounted_in_asset_units(
     chain,
     yield_vesting,
     recipient,
@@ -80,18 +80,20 @@ def test_share_cap_is_all_or_nothing(
     end_time,
 ):
     chain.pending_timestamp = start_time + (end_time - start_time) // 2
-    claimable = yield_vesting.claimable_shares()
-    principal_claimed = yield_vesting.claimed_principal_assets()
-    total_claimed = yield_vesting.claimed_shares()
-    escrow_balance = vault.balanceOf(yield_vesting)
+    claimable_assets = yield_vesting.claimable_principal_assets()
+    partial_assets = claimable_assets // 3
 
-    with boa.reverts(dev="share cap too low"):
-        yield_vesting.claim_principal(recipient, claimable - 1, sender=recipient)
+    assert yield_vesting.claim_principal(recipient, partial_assets, sender=recipient) == partial_assets
+    event = events(yield_vesting, "PrincipalClaim")[0]
+    assert event.beneficiary == recipient
+    assert event.principal_assets == partial_assets
+    assert event.shares == partial_assets
+    assert yield_vesting.claimed_principal_assets() == partial_assets
+    assert vault.balanceOf(recipient) == partial_assets
+    assert yield_vesting.claimable_principal_assets() == claimable_assets - partial_assets
 
-    assert yield_vesting.claimed_principal_assets() == principal_claimed
-    assert yield_vesting.claimed_shares() == total_claimed
-    assert vault.balanceOf(yield_vesting) == escrow_balance
-    assert yield_vesting.claim_principal(recipient, claimable, sender=recipient) == claimable
+    assert yield_vesting.claim_principal(sender=recipient) == claimable_assets - partial_assets
+    assert yield_vesting.claimed_principal_assets() == claimable_assets
 
 
 def test_regular_claim_preserves_yield_until_explicit_claim(
@@ -278,9 +280,16 @@ def test_revoke_combines_clawback_and_yield_for_owner(
 
     yield_vesting.revoke(sender=owner)
 
+    event = events(yield_vesting, "Revoked")[0]
+    assert event.recipient == recipient
+    assert event.revocation_owner == owner
+    assert event.beneficiary == owner
+    assert event.clawed_back_principal_assets == amount - recipient_principal
+    assert event.shares == clawback
+    assert events(yield_vesting, "RevocationRenounced") == []
     assert vault.balanceOf(owner) == yield_shares + clawback
     assert vault.convertToAssets(vault.balanceOf(yield_vesting)) >= recipient_principal
-    assert yield_vesting.owner() == ZERO_ADDRESS
+    assert yield_vesting.revocation_owner() == ZERO_ADDRESS
     assert yield_vesting.yield_recipient() == owner
 
     yield_vesting.claim_principal(sender=recipient)
@@ -321,11 +330,13 @@ def test_renouncing_revocation_does_not_change_yield_recipient(
     amount,
 ):
     yield_vesting.renounce_revocation(sender=owner)
+    event = events(yield_vesting, "RevocationRenounced")[0]
     vault.set_assets_per_share(125 * SCALE // 100, sender=owner)
 
     yield_vesting.claim_yield(sender=recipient)
 
-    assert yield_vesting.owner() == ZERO_ADDRESS
+    assert yield_vesting.revocation_owner() == ZERO_ADDRESS
+    assert event.revocation_owner == owner
     assert yield_vesting.yield_recipient() == owner
     assert vault.balanceOf(owner) == amount * (125 - 100) // 125
 

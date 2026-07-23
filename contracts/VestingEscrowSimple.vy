@@ -34,6 +34,7 @@ event SetOpenClaim:
 
 MAX_AMOUNT: constant(uint256) = 2**128 - 1
 MAX_DURATION: constant(uint256) = 2**64 - 1
+IMPLEMENTATION_KIND: constant(uint256) = 1
 
 recipient: public(address)
 token: public(IERC20)
@@ -56,8 +57,8 @@ def __init__():
 
 @external
 @pure
-def version() -> uint256:
-    return 2
+def implementation_kind() -> uint256:
+    return IMPLEMENTATION_KIND
 
 
 @external

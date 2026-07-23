@@ -36,7 +36,7 @@ def events(abi):
     }
 
 
-def test_standard_escrow_keeps_the_standard_token_abi():
+def test_standard_escrow_keeps_the_legacy_token_lifecycle_abi():
     abi = compile_abi("VestingEscrowSimple")
     actual = functions(abi)
     expected = {
@@ -44,7 +44,7 @@ def test_standard_escrow_keeps_the_standard_token_abi():
             ("bool",),
             "nonpayable",
         ),
-        ("version", ()): (("uint256",), "pure"),
+        ("implementation_kind", ()): (("uint256",), "pure"),
         ("unclaimed", ()): (("uint256",), "view"),
         ("locked", ()): (("uint256",), "view"),
         ("claim", ()): (("uint256",), "nonpayable"),
@@ -96,7 +96,7 @@ def test_erc4626_escrow_uses_explicit_asset_and_share_units():
             "initialize",
             ("address", "address", "address", "uint256", "uint256", "uint256", "uint256", "bool", "address"),
         ): (("bool",), "nonpayable"),
-        ("version", ()): (("uint256",), "pure"),
+        ("implementation_kind", ()): (("uint256",), "pure"),
         ("vested_principal_assets", ()): (("uint256",), "view"),
         ("claimable_principal_assets", ()): (("uint256",), "view"),
         ("claimable_shares", ()): (("uint256",), "view"),
@@ -120,13 +120,12 @@ def test_erc4626_escrow_uses_explicit_asset_and_share_units():
         ("end_time", ()): (("uint256",), "view"),
         ("cliff_length", ()): (("uint256",), "view"),
         ("funded_shares", ()): (("uint256",), "view"),
-        ("claimed_shares", ()): (("uint256",), "view"),
         ("principal_assets", ()): (("uint256",), "view"),
         ("claimed_principal_assets", ()): (("uint256",), "view"),
         ("disabled_at", ()): (("uint256",), "view"),
         ("open_claim", ()): (("bool",), "view"),
         ("initialized", ()): (("bool",), "view"),
-        ("owner", ()): (("address",), "view"),
+        ("revocation_owner", ()): (("address",), "view"),
         ("yield_recipient", ()): (("address",), "view"),
     }
     assert actual == expected
@@ -135,7 +134,7 @@ def test_erc4626_escrow_uses_explicit_asset_and_share_units():
         (
             "PrincipalClaim",
             (
-                ("recipient", "address", True),
+                ("beneficiary", "address", True),
                 ("principal_assets", "uint256", False),
                 ("shares", "uint256", False),
             ),
@@ -145,14 +144,14 @@ def test_erc4626_escrow_uses_explicit_asset_and_share_units():
             "Revoked",
             (
                 ("recipient", "address", True),
-                ("owner", "address", True),
+                ("revocation_owner", "address", True),
                 ("beneficiary", "address", True),
-                ("principal_assets", "uint256", False),
+                ("clawed_back_principal_assets", "uint256", False),
                 ("shares", "uint256", False),
                 ("ts", "uint256", False),
             ),
         ),
-        ("RevocationRenounced", (("owner", "address", False),)),
+        ("RevocationRenounced", (("revocation_owner", "address", True),)),
         ("SetOpenClaim", (("state", "bool", False),)),
     }
     assert next(item for item in abi if item["type"] == "constructor")["inputs"] == []
@@ -162,7 +161,7 @@ def test_factory_exposes_two_explicit_deployment_paths():
     abi = compile_abi("VestingEscrowFactory")
     actual = functions(abi)
     prefix = ("address", "address", "uint256", "uint256")
-    standard_optional = ("uint256", "uint256", "bool", "uint256", "address")
+    standard_optional = ("uint256", "uint256", "bool", "address")
     erc4626_optional = ("uint256", "uint256", "bool", "address", "address")
     expected = {
         ("deploy_vesting_contract", prefix + standard_optional[:count]): (("address",), "nonpayable")
@@ -176,13 +175,11 @@ def test_factory_exposes_two_explicit_deployment_paths():
     )
     expected.update(
         {
-            ("version", ()): (("uint256",), "pure"),
             ("STANDARD_TARGET", ()): (("address",), "view"),
             ("ERC4626_TARGET", ()): (("address",), "view"),
-            ("VYPER", ()): (("address",), "view"),
             ("escrows_length", ()): (("uint256",), "view"),
             ("escrows", ("uint256",)): (("address",), "view"),
-            ("is_erc4626", ("address",)): (("bool",), "view"),
+            ("escrow_kind", ("address",)): (("uint256",), "view"),
         }
     )
     assert actual == expected
@@ -210,7 +207,7 @@ def test_factory_exposes_two_explicit_deployment_paths():
                 ("vault", "address", True),
                 ("recipient", "address", True),
                 ("funder", "address", False),
-                ("owner", "address", False),
+                ("revocation_owner", "address", False),
                 ("yield_recipient", "address", False),
                 ("asset_token", "address", False),
                 ("funded_shares", "uint256", False),
@@ -224,4 +221,4 @@ def test_factory_exposes_two_explicit_deployment_paths():
     }
 
     constructor = next(item for item in abi if item["type"] == "constructor")
-    assert [arg["type"] for arg in constructor["inputs"]] == ["address", "address", "address"]
+    assert [arg["type"] for arg in constructor["inputs"]] == ["address", "address"]

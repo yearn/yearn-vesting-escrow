@@ -2,7 +2,8 @@
 
 Vesting escrows for standard ERC-20 tokens and ERC-4626 vault shares.
 
-The unreleased version 2 has two dedicated implementations behind one factory:
+The unreleased 0.4.0 release has two dedicated implementations behind one
+factory:
 
 - `VestingEscrowSimple.vy` vests a fixed amount of an ordinary ERC-20 token;
 - `VestingEscrow4626.vy` vests principal denominated in the vault's underlying
@@ -20,7 +21,8 @@ initialization. Its API makes units explicit:
 
 - `claimable_principal_assets()` and `vested_principal_assets()` report assets;
 - `claimable_shares()` and `locked_shares()` report vault shares;
-- `claim_principal()` pays vested principal in shares;
+- `claim_principal()` accepts a maximum principal amount in asset units and
+  pays the corresponding vault shares;
 - `claim_yield()` sends shares worth more than the remaining principal to a
   fixed `yield_recipient`, which is independent from the revocation owner;
 - revocation returns unvested principal shares and sends available yield to the
@@ -38,6 +40,9 @@ precision. Each lifecycle transition can differ by less than one raw share due
 to ERC-4626 floor rounding; the contract deliberately accepts that negligible
 bound instead of maintaining cross-call rounding checkpoints. Coarse-share
 vaults are outside the supported deployment policy.
+
+The factory registry reports `escrow_kind(address) == 1` for standard-token
+escrows, `2` for ERC-4626 escrows, and `0` for unknown addresses.
 
 ## Development
 
@@ -94,9 +99,9 @@ v2 factory. The app and its Ethereum event indexer are
 
 ## Production deployments
 
-The `version() == 2` contracts on `master` have not yet been deployed or
-audited. This contract version is separate from the historical v0.x release
-tags below. Existing factories and escrows remain immutable and unaffected.
+The 0.4.0 contracts on `master` have not yet been deployed or audited. This
+release is separate from the historical v0.x releases below. Existing
+factories and escrows remain immutable and unaffected.
 
 ### [v0.3.0](https://github.com/yearn/yearn-vesting-escrow/tree/v0.3.0)
 

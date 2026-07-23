@@ -171,7 +171,6 @@ def test_revoke_clears_owner_before_transfer(
     chain,
     standard_target,
     erc4626_target,
-    vyper_donation,
     owner,
     recipient,
     amount,
@@ -183,7 +182,6 @@ def test_revoke_clears_owner_before_transfer(
         "VestingEscrowFactory",
         standard_target,
         erc4626_target,
-        vyper_donation,
         sender=owner,
     )
     token.mint(owner, amount, sender=owner)
@@ -196,7 +194,6 @@ def test_revoke_clears_owner_before_transfer(
         start_time,
         0,
         True,
-        0,
         owner,
         sender=owner,
     )
@@ -263,7 +260,6 @@ def test_collect_dust_preserves_vesting_reserve(vesting, token, owner, recipient
 def test_collect_dust_cannot_make_escrow_insolvent(
     standard_target,
     erc4626_target,
-    vyper_donation,
     owner,
     recipient,
     amount,
@@ -275,7 +271,6 @@ def test_collect_dust_cannot_make_escrow_insolvent(
         "VestingEscrowFactory",
         standard_target,
         erc4626_target,
-        vyper_donation,
         sender=owner,
     )
     token.mint(owner, amount, sender=owner)
@@ -328,7 +323,6 @@ def test_large_direct_donation_keeps_partial_claims_live(
     chain,
     standard_target,
     erc4626_target,
-    vyper_donation,
     owner,
     recipient,
     accounts,
@@ -343,7 +337,6 @@ def test_large_direct_donation_keeps_partial_claims_live(
         "VestingEscrowFactory",
         standard_target,
         erc4626_target,
-        vyper_donation,
         sender=owner,
     )
 
@@ -357,7 +350,6 @@ def test_large_direct_donation_keeps_partial_claims_live(
         start,
         0,
         True,
-        0,
         owner,
         sender=owner,
     )

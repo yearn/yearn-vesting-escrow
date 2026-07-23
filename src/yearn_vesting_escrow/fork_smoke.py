@@ -61,7 +61,6 @@ def main():
         CONTRACTS / "VestingEscrowFactory.vy",
         standard_target,
         erc4626_target,
-        deployer,
         sender=deployer,
     )
 
