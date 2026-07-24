@@ -7,10 +7,10 @@ use different code and ABIs.
 
 The deployment consists of three contracts:
 
-1. One `VestingEscrowSimple` implementation.
-2. One `VestingEscrow4626` implementation.
-3. One `VestingEscrowFactory` configured with both implementation addresses as
-   immutables.
+1. One [`VestingEscrowSimple`](api/standard.md) implementation.
+2. One [`VestingEscrow4626`](api/erc4626.md) implementation.
+3. One [`VestingEscrowFactory`](api/factory.md) configured with both
+   implementation addresses as immutables.
 
 For each escrow, the factory creates an ERC-1167 minimal proxy, transfers the
 exact standard-token amount or the execution-time ERC-4626 share quote into it,

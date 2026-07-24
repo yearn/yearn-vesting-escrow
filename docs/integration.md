@@ -5,10 +5,14 @@ the unreleased 0.4.0 ABI.
 
 ## Choose the escrow type
 
-Use `deploy_vesting_contract` when the recipient should receive a fixed amount
-of an ordinary ERC-20 token.
+Use [`deploy_vesting_contract`](api/factory.md#standard-escrow-deployment) when
+the recipient should receive a fixed amount of an ordinary ERC-20 token. Its
+deployed surface is documented in the
+[standard escrow API](api/standard.md).
 
-Use `deploy_erc4626_vesting` only when:
+Use
+[`deploy_erc4626_vesting`](api/factory.md#erc-4626-escrow-deployment) only
+when:
 
 - the factory will be funded with ERC-4626 shares;
 - vesting entitlement should be denominated in the underlying asset;
@@ -16,6 +20,9 @@ Use `deploy_erc4626_vesting` only when:
   `yield_recipient`;
 - the specific vault satisfies the requirements in
   [ERC-4626 accounting](erc4626.md).
+
+Its deployed surface is documented in the
+[ERC-4626 escrow API](api/erc4626.md).
 
 Do not send vault shares through the standard path if the intended policy is to
 separate yield. The standard escrow treats every funded share as recipient

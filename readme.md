@@ -60,7 +60,10 @@ maintain a duplicate on-chain registry.
 ## Documentation
 
 - [Architecture and security model](docs/architecture.md)
-- [Complete contract API](docs/api.md)
+- [Contract API index](docs/api.md):
+  [factory](docs/api/factory.md),
+  [standard escrow](docs/api/standard.md), and
+  [ERC-4626 escrow](docs/api/erc4626.md)
 - [ERC-4626 accounting](docs/erc4626.md)
 - [Integration and v0.3 migration guide](docs/integration.md)
 - [Development and deployment guide](docs/deployment.md)
