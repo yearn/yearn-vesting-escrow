@@ -43,17 +43,21 @@ def deploy_erc4626(
     recipient,
     revoker,
     yield_recipient,
-    shares,
+    principal_assets,
     duration,
     start,
     *,
+    max_funded_shares=None,
     cliff=0,
     permissionless_claims=True,
 ):
+    if max_funded_shares is None:
+        max_funded_shares = principal_assets
     return factory.deploy_erc4626_vesting(
         vault,
         recipient,
-        shares,
+        principal_assets,
+        max_funded_shares,
         duration,
         start,
         cliff,
@@ -102,6 +106,7 @@ def test_deployment_configuration_is_explicit(
     erc4626_address = vesting_factory.deploy_erc4626_vesting(
         vault,
         recipient,
+        amount,
         amount,
         duration,
         chain.pending_timestamp,
@@ -219,6 +224,75 @@ def test_deploys_erc4626_escrow_with_distinct_roles(
     assert escrow.permissionless_claims()
     assert escrow.disabled_at() == 0
     assert vault.balanceOf(escrow) == amount
+
+
+def test_erc4626_funding_is_asset_denominated_and_share_bounded(
+    vesting_factory,
+    owner,
+    recipient,
+    vault,
+    amount,
+    duration,
+    start_time,
+):
+    vault.set_assets_per_share(15 * 10**17, sender=owner)
+    principal_assets = amount + 1
+    floor_shares = vault.convertToShares(principal_assets)
+    funded_shares = floor_shares + 1
+    max_funded_shares = funded_shares + 123
+
+    assert vault.convertToAssets(floor_shares) < principal_assets
+    assert vault.convertToAssets(funded_shares) >= principal_assets
+    assert (
+        vesting_factory.preview_erc4626_funding(vault, principal_assets)
+        == funded_shares
+    )
+
+    vault.mint(owner, max_funded_shares, sender=owner)
+    vault.approve(vesting_factory, max_funded_shares, sender=owner)
+
+    with boa.reverts(dev="share limit exceeded"):
+        deploy_erc4626(
+            vesting_factory,
+            vault,
+            owner,
+            recipient,
+            owner,
+            owner,
+            principal_assets,
+            duration,
+            start_time,
+            max_funded_shares=funded_shares - 1,
+        )
+
+    escrow_address = deploy_erc4626(
+        vesting_factory,
+        vault,
+        owner,
+        recipient,
+        owner,
+        owner,
+        principal_assets,
+        duration,
+        start_time,
+        max_funded_shares=max_funded_shares,
+    )
+    escrow = at("VestingEscrow4626", escrow_address)
+    event = events(
+        vesting_factory,
+        "ERC4626VestingEscrowCreated",
+        include_child_logs=False,
+    )[0]
+
+    assert event.principal_assets == principal_assets
+    assert event.funded_shares == funded_shares
+    assert escrow.principal_assets() == principal_assets
+    assert vault.balanceOf(escrow) == funded_shares
+    assert vault.balanceOf(owner) == max_funded_shares - funded_shares
+    assert (
+        vault.allowance(owner, vesting_factory)
+        == max_funded_shares - funded_shares
+    )
 
 
 def test_zero_revoker_is_allowed_for_irrevocable_escrows(
@@ -442,10 +516,10 @@ def test_erc4626_rejects_zero_or_excessive_principal(
     start_time,
 ):
     vault = deploy("test/MockERC4626", asset_token, sender=owner)
-    vault.set_assets_per_share(1, sender=owner)
-    vault.mint(owner, 1, sender=owner)
-    vault.approve(vesting_factory, 1, sender=owner)
-    with boa.reverts():
+    vault.mint(owner, 2**128, sender=owner)
+    vault.approve(vesting_factory, 2**128, sender=owner)
+
+    with boa.reverts(dev="amount must be > 0"):
         deploy_erc4626(
             vesting_factory,
             vault,
@@ -453,15 +527,12 @@ def test_erc4626_rejects_zero_or_excessive_principal(
             recipient,
             owner,
             owner,
-            1,
+            0,
             duration,
             start_time,
         )
 
-    vault.set_assets_per_share(2**128, sender=owner)
-    vault.mint(owner, 10**18, sender=owner)
-    vault.approve(vesting_factory, 10**18, sender=owner)
-    with boa.reverts():
+    with boa.reverts(dev="principal too large"):
         deploy_erc4626(
             vesting_factory,
             vault,
@@ -469,9 +540,10 @@ def test_erc4626_rejects_zero_or_excessive_principal(
             recipient,
             owner,
             owner,
-            10**18,
+            2**128,
             duration,
             start_time,
+            max_funded_shares=2**128,
         )
 
 

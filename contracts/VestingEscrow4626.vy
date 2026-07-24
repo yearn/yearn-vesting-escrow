@@ -72,7 +72,7 @@ def initialize(
     revoker: address,
     vault: IERC4626,
     recipient: address,
-    funded_shares: uint256,
+    principal_assets: uint256,
     start_time: uint256,
     end_time: uint256,
     cliff_length: uint256,
@@ -82,13 +82,15 @@ def initialize(
     """Initialize one funded ERC-4626 minimal proxy."""
     assert self.recipient == empty(address)  # dev: can only initialize once
 
-    assert funded_shares > 0  # dev: shares must be > 0
+    assert principal_assets > 0  # dev: principal must be > 0
+    assert principal_assets <= MAX_PRINCIPAL  # dev: principal too large
     assert recipient not in [empty(address), self, vault.address, revoker]  # dev: invalid recipient
     assert end_time > block.timestamp and end_time > start_time  # dev: invalid vesting period
     duration: uint256 = end_time - start_time
     assert duration <= MAX_DURATION  # dev: duration too long
     assert cliff_length <= duration  # dev: invalid cliff
-    assert staticcall vault.balanceOf(self) >= funded_shares  # dev: escrow not funded
+    funded_shares: uint256 = staticcall vault.balanceOf(self)
+    assert funded_shares > 0  # dev: escrow not funded
 
     asset_token: address = staticcall vault.asset()
     assert asset_token.is_contract  # dev: invalid asset
@@ -98,11 +100,9 @@ def initialize(
         vault.address,
         asset_token,
     ]  # dev: invalid yield recipient
-    principal_assets: uint256 = staticcall vault.convertToAssets(funded_shares)
-    assert principal_assets > 0  # dev: zero principal
-    assert principal_assets <= MAX_PRINCIPAL  # dev: principal too large
     roundtrip_shares: uint256 = staticcall vault.convertToShares(principal_assets)
     assert roundtrip_shares > 0 and roundtrip_shares <= funded_shares  # dev: invalid conversion
+    assert staticcall vault.convertToAssets(funded_shares) >= principal_assets  # dev: insufficient principal backing
 
     self.revoker = revoker
     self.vault = vault

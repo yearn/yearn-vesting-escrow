@@ -450,6 +450,7 @@ def test_vesting_at_amount_limit(
         vault,
         recipient,
         maximum,
+        maximum,
         duration,
         start,
         0,
@@ -518,6 +519,7 @@ def test_large_share_donation_keeps_yield_accounting_live(
     escrow_address = vesting_factory.deploy_erc4626_vesting(
         vault,
         recipient,
+        maximum,
         maximum,
         duration,
         start,
