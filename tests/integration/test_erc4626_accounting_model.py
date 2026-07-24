@@ -192,6 +192,7 @@ def test_lifecycle_conserves_every_share_and_explicit_yield_claim_drains(princip
 @settings(deadline=None, max_examples=50)
 @given(
     principal=st.integers(min_value=10**6, max_value=10**24),
+    initial_rate=st.integers(min_value=SCALE // 10, max_value=4 * SCALE),
     actions=st.lists(
         st.tuples(
             st.integers(min_value=0, max_value=9_999),
@@ -205,7 +206,12 @@ def test_lifecycle_conserves_every_share_and_explicit_yield_claim_drains(princip
     ),
     revoke_bps=st.integers(min_value=0, max_value=10_000),
 )
-def test_deployed_erc4626_lifecycle_matches_model(principal, actions, revoke_bps):
+def test_deployed_erc4626_lifecycle_matches_model(
+    principal,
+    initial_rate,
+    actions,
+    revoke_bps,
+):
     """Differentially exercise the deployed escrow against the accounting model."""
     with boa.env.anchor():
         owner = boa.env.generate_address("differential-owner")
@@ -224,13 +230,17 @@ def test_deployed_erc4626_lifecycle_matches_model(principal, actions, revoke_bps
 
         duration = 10_000
         start = boa.env.evm.patch.timestamp + 1
-        vault.mint(owner, principal, sender=owner)
-        vault.approve(factory, principal, sender=owner)
+        vault.set_assets_per_share(initial_rate, sender=owner)
+        funded_shares = vault.convertToShares(principal)
+        if vault.convertToAssets(funded_shares) < principal:
+            funded_shares += 1
+        vault.mint(owner, funded_shares, sender=owner)
+        vault.approve(factory, funded_shares, sender=owner)
         escrow_address = factory.deploy_erc4626_vesting(
             vault,
             recipient,
             principal,
-            principal,
+            funded_shares,
             duration,
             start,
             0,
@@ -241,12 +251,12 @@ def test_deployed_erc4626_lifecycle_matches_model(principal, actions, revoke_bps
         )
         escrow = at("VestingEscrow4626", escrow_address)
 
-        balance = principal
-        total_shares = principal
+        balance = funded_shares
+        total_shares = funded_shares
         claimed_assets = 0
         recipient_shares = 0
         owner_shares = 0
-        assets_per_share = SCALE
+        assets_per_share = initial_rate
 
         for time_bps, new_rate, donation, claim_bps, take_yield in sorted(actions):
             if time_bps > revoke_bps:

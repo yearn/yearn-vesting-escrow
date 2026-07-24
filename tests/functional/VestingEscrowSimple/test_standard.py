@@ -86,6 +86,20 @@ def test_permissionless_claim_for_recipient(
     assert token.balanceOf(owner) == 0
 
 
+def test_claim_rejects_escrow_receiver(
+    chain,
+    vesting,
+    recipient,
+    start_time,
+    end_time,
+):
+    chain.pending_timestamp = start_time + (end_time - start_time) // 2
+
+    with boa.reverts():
+        vesting.claim(vesting, UINT256_MAX, sender=recipient)
+    assert vesting.total_claimed() == 0
+
+
 def test_closed_claim_only_allows_recipient(
     chain,
     vesting,
@@ -160,6 +174,21 @@ def test_revoke_accepts_custom_receiver(
 
     vesting.claim(recipient, UINT256_MAX, sender=recipient)
     assert token.balanceOf(recipient) == vested
+
+
+def test_revoke_rejects_escrow_receiver(
+    chain,
+    vesting,
+    owner,
+    start_time,
+    end_time,
+):
+    chain.pending_timestamp = start_time + (end_time - start_time) // 2
+
+    with boa.reverts():
+        vesting.revoke(vesting, sender=owner)
+    assert vesting.disabled_at() == 0
+    assert vesting.revoker() == owner
 
 
 def test_only_revoker_can_revoke(vesting, recipient):

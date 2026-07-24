@@ -11,10 +11,10 @@ nonzero.
 
 | Role | Authority |
 | --- | --- |
-| `recipient` | Owns vested principal, may route its own claims to any nonzero receiver, and controls permissionless claiming. |
-| `revoker` | May stop vesting immediately and route unvested principal to any nonzero receiver, or permanently renounce that authority. |
+| `recipient` | Owns vested principal, may route its own claims to any valid receiver, and controls permissionless claiming. |
+| `revoker` | May stop vesting immediately and route unvested principal to any valid receiver, or permanently renounce that authority. |
 | third-party caller | May claim only when permissionless claims are enabled and only to the stored recipient. |
-| `receiver` | Receives one claim or revocation transfer and gains no persistent authority. |
+| `receiver` | Receives one claim or revocation transfer and gains no persistent authority. It cannot be zero or the escrow itself. |
 
 A zero `revoker` makes the escrow irrevocable from initialization.
 
@@ -109,7 +109,7 @@ Authorization is:
 
 | Caller | Receiver | Permissionless claims enabled | Result |
 | --- | --- | --- | --- |
-| `recipient` | Any nonzero address | Either | Allowed |
+| `recipient` | Any address except zero or the escrow | Either | Allowed |
 | Anyone else | `recipient` | Yes | Allowed |
 | Anyone else | Any other address | Either | Rejected |
 | Anyone else | `recipient` | No | Rejected |
@@ -125,7 +125,8 @@ revoke(receiver: address)
 
 Only the current `revoker` may call. The function:
 
-1. Requires a nonzero receiver and a current timestamp before `end_time`.
+1. Requires a receiver other than zero or the escrow and a current timestamp
+   before `end_time`.
 2. Computes principal unvested at the current block timestamp.
 3. Stores that timestamp in `disabled_at`.
 4. Clears `revoker` before the external token transfer.

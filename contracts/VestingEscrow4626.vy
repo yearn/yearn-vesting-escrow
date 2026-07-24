@@ -248,7 +248,7 @@ def claim_principal(
 ) -> uint256:
     """Claim up to a requested amount of currently vested principal."""
     recipient: address = self.recipient
-    assert receiver != empty(address)  # dev: invalid receiver
+    assert receiver not in [empty(address), self]  # dev: invalid receiver
     assert msg.sender == recipient or not self.claims_closed and receiver == recipient  # dev: not authorized
 
     claimable_assets: uint256 = 0
@@ -257,6 +257,7 @@ def claim_principal(
         min(block.timestamp, self._vesting_end()),
         max_principal_assets,
     )
+    assert claimable_assets == 0 or shares > 0  # dev: claim too small
     self.claimed_principal_assets += claimable_assets
 
     if shares > 0:
@@ -288,7 +289,7 @@ def revoke(receiver: address):
     """Stop vesting and return unvested principal shares and current yield."""
     revoker: address = self.revoker
     assert msg.sender == revoker  # dev: not revoker
-    assert receiver != empty(address)  # dev: invalid receiver
+    assert receiver not in [empty(address), self]  # dev: invalid receiver
     assert block.timestamp < self.end_time  # dev: vesting complete
 
     remaining_assets: uint256 = self.principal_assets - self.claimed_principal_assets

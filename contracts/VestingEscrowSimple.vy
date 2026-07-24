@@ -145,7 +145,7 @@ def claim(
     max_amount: uint256,
 ) -> uint256:
     recipient: address = self.recipient
-    assert receiver != empty(address)  # dev: invalid receiver
+    assert receiver not in [empty(address), self]  # dev: invalid receiver
     assert msg.sender == recipient or not self.claims_closed and receiver == recipient  # dev: not authorized
 
     claim_period_end: uint256 = min(block.timestamp, self._vesting_end())
@@ -163,7 +163,7 @@ def claim(
 def revoke(receiver: address):
     revoker: address = self.revoker
     assert msg.sender == revoker  # dev: not revoker
-    assert receiver != empty(address)  # dev: invalid receiver
+    assert receiver not in [empty(address), self]  # dev: invalid receiver
     assert block.timestamp < self.end_time  # dev: vesting complete
 
     unvested_amount: uint256 = self.total_locked - self._total_vested_at(block.timestamp)

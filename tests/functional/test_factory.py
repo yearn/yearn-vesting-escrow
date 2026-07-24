@@ -295,6 +295,57 @@ def test_erc4626_funding_is_asset_denominated_and_share_bounded(
     )
 
 
+def test_erc4626_funding_requotes_at_execution(
+    vesting_factory,
+    owner,
+    recipient,
+    vault,
+    amount,
+    duration,
+    start_time,
+):
+    previewed_shares = vesting_factory.preview_erc4626_funding(vault, amount)
+    assert previewed_shares == amount
+
+    vault.set_assets_per_share(15 * 10**17, sender=owner)
+    execution_shares = vesting_factory.preview_erc4626_funding(vault, amount)
+    assert execution_shares < previewed_shares
+    vault.mint(owner, previewed_shares, sender=owner)
+    vault.approve(vesting_factory, previewed_shares, sender=owner)
+
+    escrow_address = deploy_erc4626(
+        vesting_factory,
+        vault,
+        owner,
+        recipient,
+        owner,
+        owner,
+        amount,
+        duration,
+        start_time,
+        max_funded_shares=previewed_shares,
+    )
+    assert vault.balanceOf(escrow_address) == execution_shares
+
+    with boa.env.anchor():
+        vault.set_assets_per_share(2 * 10**18, sender=owner)
+        stale_limit = vesting_factory.preview_erc4626_funding(vault, amount)
+        vault.set_assets_per_share(10**18, sender=owner)
+        with boa.reverts(dev="share limit exceeded"):
+            deploy_erc4626(
+                vesting_factory,
+                vault,
+                owner,
+                recipient,
+                owner,
+                owner,
+                amount,
+                duration,
+                start_time,
+                max_funded_shares=stale_limit,
+            )
+
+
 def test_zero_revoker_is_allowed_for_irrevocable_escrows(
     vesting_factory,
     owner,

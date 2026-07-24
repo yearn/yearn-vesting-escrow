@@ -146,8 +146,9 @@ standard.claim(receiver, 2**256 - 1)
 erc4626.claim_principal(receiver, 2**256 - 1)
 ```
 
-The recipient may redirect its claim to any nonzero receiver. Automation acting
-permissionlessly must use the stored recipient as receiver.
+The recipient may redirect its claim to any receiver other than zero or the
+escrow itself. Automation acting permissionlessly must use the stored recipient
+as receiver.
 
 For ERC-4626:
 

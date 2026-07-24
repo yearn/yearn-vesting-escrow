@@ -103,7 +103,7 @@ Principal claims obey these rules:
 
 | Caller | Receiver | Permissionless claims enabled | Result |
 | --- | --- | --- | --- |
-| `recipient` | Any nonzero address | Either | Allowed |
+| `recipient` | Any address except zero or the escrow | Either | Allowed |
 | Anyone else | `recipient` | Yes | Allowed |
 | Anyone else | Any other address | Either | Rejected |
 | Anyone else | `recipient` | No | Rejected |

@@ -92,6 +92,47 @@ def test_permissionless_claim_can_only_pay_recipient(
     assert vault.balanceOf(recipient) == claimed
 
 
+def test_positive_zero_share_claim_does_not_consume_principal(
+    chain,
+    yield_vesting,
+    owner,
+    recipient,
+    vault,
+    start_time,
+    end_time,
+):
+    vault.set_assets_per_share(2 * SCALE, sender=owner)
+    chain.pending_timestamp = start_time + (end_time - start_time) // 2
+
+    assert yield_vesting.preview_principal_claim(1) == (1, 0)
+    with boa.reverts():
+        yield_vesting.claim_principal(recipient, 1, sender=owner)
+    assert yield_vesting.claimed_principal_assets() == 0
+
+    assert yield_vesting.preview_principal_claim(2) == (2, 1)
+    assert yield_vesting.claim_principal(recipient, 2, sender=owner) == 1
+    assert yield_vesting.claimed_principal_assets() == 2
+    assert vault.balanceOf(recipient) == 1
+
+
+def test_principal_claim_rejects_escrow_receiver(
+    chain,
+    yield_vesting,
+    recipient,
+    start_time,
+    end_time,
+):
+    chain.pending_timestamp = start_time + (end_time - start_time) // 2
+
+    with boa.reverts():
+        yield_vesting.claim_principal(
+            yield_vesting,
+            UINT256_MAX,
+            sender=recipient,
+        )
+    assert yield_vesting.claimed_principal_assets() == 0
+
+
 def test_partial_principal_claim_is_accounted_in_asset_units(
     chain,
     yield_vesting,
@@ -370,6 +411,21 @@ def test_revoke_accepts_custom_receiver(
     assert vault.balanceOf(cold_storage) == amount - vested
     assert vault.balanceOf(owner) == 0
     assert vault.balanceOf(yield_vesting) == vested
+
+
+def test_revoke_rejects_escrow_receiver(
+    chain,
+    yield_vesting,
+    owner,
+    start_time,
+    end_time,
+):
+    chain.pending_timestamp = start_time + (end_time - start_time) // 2
+
+    with boa.reverts():
+        yield_vesting.revoke(yield_vesting, sender=owner)
+    assert yield_vesting.disabled_at() == 0
+    assert yield_vesting.revoker() == owner
 
 
 def test_renouncing_revocation_does_not_change_yield_recipient(
