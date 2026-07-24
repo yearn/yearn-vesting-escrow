@@ -22,8 +22,14 @@ dev = [
 ]
 
 [build-system]
-requires = ["uv_build>=0.11.21,<0.12.0"]
-build-backend = "uv_build"
+requires = ["hatchling==1.31.0"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/yearn_vesting_escrow"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"contracts" = "yearn_vesting_escrow/contracts"
 
 [tool.black]
 line-length = 120

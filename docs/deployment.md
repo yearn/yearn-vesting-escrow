@@ -20,7 +20,7 @@ The package exposes three entry points:
 
 | Command | Purpose |
 | --- | --- |
-| `vesting-escrow-compile` | Compile every Vyper contract and report bytecode sizes. |
+| `vesting-escrow-compile` | Compile every Vyper contract and report bytecode sizes and SHA-256 hashes. |
 | `vesting-escrow-deploy` | Deploy both implementations and their factory locally or to a development network. |
 | `vesting-escrow-fork-smoke` | Exercise the ERC-4626 lifecycle against a real vault on a pinned mainnet fork. |
 
@@ -36,6 +36,16 @@ uv run --locked pytest tests/integration/
 The tests cover the exact external ABI, factory funding, authorization,
 revocation, adversarial transfer callbacks, ERC-4626 gain/loss accounting,
 rounding, and a differential accounting model.
+
+Build and exercise the installed wheel independently of the checkout:
+
+```sh
+uv build
+uvx --from ./dist/yearn_vesting_escrow-0.4.0-py3-none-any.whl vesting-escrow-compile
+uvx --from ./dist/yearn_vesting_escrow-0.4.0-py3-none-any.whl vesting-escrow-deploy
+```
+
+The wheel includes the canonical Vyper sources used by all three entry points.
 
 After changing dependencies in `pyproject.toml`, regenerate the lock:
 

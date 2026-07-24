@@ -1,13 +1,13 @@
 """Exercise vault-share vesting against a real ERC-4626 on a pinned fork."""
 
 import os
-from pathlib import Path
 import warnings
 
 import boa
 
+from yearn_vesting_escrow.paths import contracts_path
 
-CONTRACTS = Path(__file__).resolve().parents[2] / "contracts"
+
 SUSDS = "0xa3931d71877C0E7a3148CB7Eb4463524FEc27fbD"
 SUSDS_HOLDER = "0xfB4f83C3923EAB7B6254Cd2399C206109970f95E"
 DEFAULT_BLOCK = 25_587_000
@@ -49,6 +49,7 @@ def main():
     vault_address = os.environ.get("ERC4626_VAULT", SUSDS)
     holder = os.environ.get("ERC4626_HOLDER", SUSDS_HOLDER)
     principal_assets = int(os.environ.get("ERC4626_PRINCIPAL_ASSETS", 10**18))
+    contracts = contracts_path()
 
     deployer = boa.env.generate_address("fork-deployer")
     recipient = boa.env.generate_address("fork-recipient")
@@ -64,10 +65,10 @@ def main():
     assert vault.balanceOf(holder) >= funded_shares
     assert vault.convertToAssets(funded_shares) >= principal_assets
 
-    standard_target = boa.load(CONTRACTS / "VestingEscrowSimple.vy", sender=deployer)
-    erc4626_target = boa.load(CONTRACTS / "VestingEscrow4626.vy", sender=deployer)
+    standard_target = boa.load(contracts / "VestingEscrowSimple.vy", sender=deployer)
+    erc4626_target = boa.load(contracts / "VestingEscrow4626.vy", sender=deployer)
     factory = boa.load(
-        CONTRACTS / "VestingEscrowFactory.vy",
+        contracts / "VestingEscrowFactory.vy",
         standard_target,
         erc4626_target,
         sender=deployer,
@@ -89,7 +90,7 @@ def main():
         holder,
         sender=holder,
     )
-    escrow = boa.load_partial(CONTRACTS / "VestingEscrow4626.vy").at(escrow_address)
+    escrow = boa.load_partial(contracts / "VestingEscrow4626.vy").at(escrow_address)
     assert escrow.principal_assets() == principal_assets
 
     boa.env.time_travel(seconds=30 * DAY)

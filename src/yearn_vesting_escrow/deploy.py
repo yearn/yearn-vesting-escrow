@@ -7,13 +7,11 @@ are read from the environment and never accepted as command-line values.
 import argparse
 import json
 import os
-from pathlib import Path
 
 import boa
 from eth_account import Account
 
-
-CONTRACTS = Path(__file__).resolve().parents[2] / "contracts"
+from yearn_vesting_escrow.paths import contracts_path
 
 
 def configure_environment(rpc_url, private_key_env, expected_chain_id):
@@ -36,10 +34,11 @@ def configure_environment(rpc_url, private_key_env, expected_chain_id):
 
 
 def deploy_contracts(deployer):
-    standard_target = boa.load(CONTRACTS / "VestingEscrowSimple.vy", sender=deployer)
-    erc4626_target = boa.load(CONTRACTS / "VestingEscrow4626.vy", sender=deployer)
+    contracts = contracts_path()
+    standard_target = boa.load(contracts / "VestingEscrowSimple.vy", sender=deployer)
+    erc4626_target = boa.load(contracts / "VestingEscrow4626.vy", sender=deployer)
     factory = boa.load(
-        CONTRACTS / "VestingEscrowFactory.vy",
+        contracts / "VestingEscrowFactory.vy",
         standard_target,
         erc4626_target,
         sender=deployer,

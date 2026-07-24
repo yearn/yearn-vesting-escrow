@@ -35,3 +35,11 @@ jobs:
 
       - name: Run property tests
         run: uv run --locked pytest tests/integration/
+
+      - name: Build package
+        run: uv build
+
+      - name: Smoke test installed wheel
+        run: |
+          uvx --from ./dist/yearn_vesting_escrow-0.4.0-py3-none-any.whl vesting-escrow-compile
+          uvx --from ./dist/yearn_vesting_escrow-0.4.0-py3-none-any.whl vesting-escrow-deploy
