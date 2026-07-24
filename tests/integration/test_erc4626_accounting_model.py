@@ -334,7 +334,7 @@ def test_deployed_erc4626_lifecycle_matches_model(
             final_vested_assets = principal * revoke_bps // 10_000
             remaining_assets = principal - claimed_assets
             recipient_assets = final_vested_assets - claimed_assets
-            principal_pool, yield_shares = split_at_rate(
+            principal_pool, _ = split_at_rate(
                 balance,
                 assets_per_share,
                 remaining_assets,
@@ -346,8 +346,8 @@ def test_deployed_erc4626_lifecycle_matches_model(
             )
 
             escrow.revoke(owner, sender=owner)
-            balance -= clawback_shares + yield_shares
-            owner_shares += clawback_shares + yield_shares
+            balance -= clawback_shares
+            owner_shares += clawback_shares
 
         else:
             timestamp = start + duration

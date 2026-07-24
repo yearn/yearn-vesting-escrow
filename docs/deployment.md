@@ -129,7 +129,8 @@ ERC4626_MAX_FUNDED_SHARES=... \
 
 The block must be numeric and pinned. The smoke test deploys the 0.4.0
 contracts, creates an escrow, claims principal and yield, revokes, claims the
-remaining vested principal, and checks that the escrow is empty.
+remaining vested principal and any residual yield, and checks that the escrow
+is empty.
 
 ## Production manifest
 

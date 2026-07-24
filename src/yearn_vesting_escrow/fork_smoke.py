@@ -110,5 +110,6 @@ def main():
 
     escrow.revoke(holder, sender=holder)
     escrow.claim_principal(recipient, 2**256 - 1, sender=recipient)
+    escrow.claim_yield(sender=recipient)
     assert vault.balanceOf(escrow) == 0
     print(f"sUSDS fork lifecycle passed at Ethereum block {block_identifier}")

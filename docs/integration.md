@@ -181,7 +181,8 @@ escrow.revoke(receiver)
 Revocation is immediate. There is no timestamp argument and no default
 receiver. It cannot be called at or after the scheduled end.
 
-For ERC-4626 escrows, revocation also transfers current yield to the fixed yield
+For ERC-4626 escrows, revocation leaves current yield in the escrow. Anyone may
+collect it afterward through `claim_yield()`, which always pays the fixed yield
 recipient. Under loss, the share value sent to either principal side can be
 less than its asset-denominated schedule amount.
 

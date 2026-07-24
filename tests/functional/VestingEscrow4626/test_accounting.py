@@ -330,7 +330,7 @@ def test_donated_shares_are_yield(
     assert vault.balanceOf(yield_vesting) == amount
 
 
-def test_revoke_combines_unvested_principal_and_yield_for_revoker(
+def test_revoke_leaves_yield_for_separate_claim(
     chain,
     yield_vesting,
     owner,
@@ -344,10 +344,15 @@ def test_revoke_combines_unvested_principal_and_yield_for_revoker(
     midpoint = start_time + (end_time - start_time) // 2
     chain.pending_timestamp = midpoint
     recipient_principal = amount * (midpoint - start_time) // (end_time - start_time)
-    principal_pool, yield_shares = split(amount, vault.convertToAssets(amount), amount)
+    principal_pool, _ = split(amount, vault.convertToAssets(amount), amount)
     unvested_shares = payout(principal_pool, amount, recipient_principal)
 
     yield_vesting.revoke(owner, sender=owner)
+    balance_after_revoke = amount - unvested_shares
+    retained_principal = vault.convertToShares(recipient_principal)
+    if vault.convertToAssets(retained_principal) < recipient_principal:
+        retained_principal += 1
+    yield_shares = balance_after_revoke - retained_principal
 
     event = events(yield_vesting, "Revoked")[0]
     assert event.recipient == recipient
@@ -356,13 +361,18 @@ def test_revoke_combines_unvested_principal_and_yield_for_revoker(
     assert event.unvested_principal_assets == amount - recipient_principal
     assert event.shares == unvested_shares
     assert events(yield_vesting, "RevocationRenounced") == []
-    assert vault.balanceOf(owner) == yield_shares + unvested_shares
+    assert events(yield_vesting, "YieldClaim") == []
+    assert vault.balanceOf(owner) == unvested_shares
+    assert yield_vesting.claimable_yield_shares() == yield_shares
     assert vault.convertToAssets(vault.balanceOf(yield_vesting)) >= recipient_principal
     assert yield_vesting.revoker() == ZERO_ADDRESS
     assert yield_vesting.yield_recipient() == owner
 
+    assert yield_vesting.claim_yield(sender=recipient) == yield_shares
+    assert vault.balanceOf(owner) == yield_shares + unvested_shares
     yield_vesting.claim_principal(recipient, UINT256_MAX, sender=recipient)
     assert vault.balanceOf(yield_vesting) == 0
+    assert vault.balanceOf(recipient) == retained_principal
     assert vault.balanceOf(recipient) + vault.balanceOf(owner) == amount
 
 

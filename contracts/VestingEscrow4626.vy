@@ -286,7 +286,7 @@ def claim_yield() -> uint256:
 @external
 @nonreentrant
 def revoke(receiver: address):
-    """Stop vesting and return unvested principal shares and current yield."""
+    """Stop vesting and return unvested principal shares."""
     revoker: address = self.revoker
     assert msg.sender == revoker  # dev: not revoker
     assert receiver not in [empty(address), self]  # dev: invalid receiver
@@ -295,8 +295,8 @@ def revoke(receiver: address):
     remaining_assets: uint256 = self.principal_assets - self.claimed_principal_assets
     recipient_assets: uint256 = self._vested_principal_assets(block.timestamp) - self.claimed_principal_assets
     principal_shares: uint256 = 0
-    yield_shares: uint256 = 0
-    principal_shares, yield_shares = self._split_principal_and_yield(remaining_assets)
+    ignored_yield: uint256 = 0
+    principal_shares, ignored_yield = self._split_principal_and_yield(remaining_assets)
     unvested_shares: uint256 = self._payout_shares(
         principal_shares,
         remaining_assets,
@@ -309,9 +309,6 @@ def revoke(receiver: address):
 
     if unvested_shares > 0:
         assert extcall self.vault.transfer(receiver, unvested_shares, default_return_value=True)
-    if yield_shares > 0:
-        assert extcall self.vault.transfer(self.yield_recipient, yield_shares, default_return_value=True)
-        log YieldClaim(recipient=self.yield_recipient, shares=yield_shares)
 
     log Revoked(
         recipient=self.recipient,
