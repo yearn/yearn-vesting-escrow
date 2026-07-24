@@ -55,18 +55,19 @@ def main():
     assert vault.balanceOf(holder) >= amount
     assert vault.convertToAssets(amount) > amount
 
-    target = boa.load(CONTRACTS / "VestingEscrowSimple.vy", sender=deployer)
+    standard_target = boa.load(CONTRACTS / "VestingEscrowSimple.vy", sender=deployer)
+    erc4626_target = boa.load(CONTRACTS / "VestingEscrow4626.vy", sender=deployer)
     factory = boa.load(
         CONTRACTS / "VestingEscrowFactory.vy",
-        target,
-        deployer,
+        standard_target,
+        erc4626_target,
         sender=deployer,
     )
 
     start_time = boa.env.evm.patch.timestamp + 60
     duration = 60 * DAY
     vault.approve(factory, amount, sender=holder)
-    escrow_address = factory.deploy_vesting_contract(
+    escrow_address = factory.deploy_erc4626_vesting(
         vault,
         recipient,
         amount,
@@ -74,26 +75,28 @@ def main():
         start_time,
         0,
         True,
-        0,
         holder,
-        True,
+        holder,
         sender=holder,
     )
-    escrow = boa.load_partial(CONTRACTS / "VestingEscrowSimple.vy").at(escrow_address)
+    escrow = boa.load_partial(CONTRACTS / "VestingEscrow4626.vy").at(escrow_address)
 
     boa.env.time_travel(seconds=30 * DAY)
     holder_balance = vault.balanceOf(holder)
-    claimed = escrow.claim(sender=recipient)
+    claimed = escrow.claim_principal(recipient, 2**256 - 1, sender=recipient)
     assert claimed > 0
     assert vault.balanceOf(recipient) == claimed
     assert vault.balanceOf(holder) == holder_balance
-    assert vault.convertToAssets(vault.balanceOf(escrow)) >= amount - escrow.principal_claimed()
+    assert (
+        vault.convertToAssets(vault.balanceOf(escrow))
+        >= escrow.principal_assets() - escrow.claimed_principal_assets()
+    )
 
     yield_shares = escrow.claim_yield(sender=recipient)
     assert yield_shares > 0
     assert vault.balanceOf(holder) == holder_balance + yield_shares
 
-    escrow.revoke(sender=holder)
-    escrow.claim(sender=recipient)
+    escrow.revoke(holder, sender=holder)
+    escrow.claim_principal(recipient, 2**256 - 1, sender=recipient)
     assert vault.balanceOf(escrow) == 0
     print(f"sUSDS fork lifecycle passed at Ethereum block {block_identifier}")

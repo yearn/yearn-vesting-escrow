@@ -7,7 +7,11 @@ CONTRACTS = Path(__file__).resolve().parents[2] / "contracts"
 
 def compile_abi(name):
     path = CONTRACTS / f"{name}.vy"
-    return compile_code(path.read_text(), contract_path=path, output_formats=["abi"])["abi"]
+    return compile_code(
+        path.read_text(),
+        contract_path=path,
+        output_formats=["abi"],
+    )["abi"]
 
 
 def functions(abi):
@@ -32,7 +36,7 @@ def events(abi):
     }
 
 
-def test_escrow_preserves_deployed_abi():
+def test_standard_escrow_has_one_explicit_lifecycle_surface():
     abi = compile_abi("VestingEscrowSimple")
     actual = functions(abi)
     expected = {
@@ -40,18 +44,13 @@ def test_escrow_preserves_deployed_abi():
             ("bool",),
             "nonpayable",
         ),
-        ("unclaimed", ()): (("uint256",), "view"),
+        ("claimable", ()): (("uint256",), "view"),
         ("locked", ()): (("uint256",), "view"),
-        ("claim", ()): (("uint256",), "nonpayable"),
-        ("claim", ("address",)): (("uint256",), "nonpayable"),
+        ("permissionless_claims", ()): (("bool",), "view"),
         ("claim", ("address", "uint256")): (("uint256",), "nonpayable"),
-        ("revoke", ()): ((), "nonpayable"),
-        ("revoke", ("uint256",)): ((), "nonpayable"),
-        ("revoke", ("uint256", "address")): ((), "nonpayable"),
-        ("disown", ()): ((), "nonpayable"),
-        ("set_open_claim", ("bool",)): ((), "nonpayable"),
-        ("collect_dust", ("address",)): ((), "nonpayable"),
-        ("collect_dust", ("address", "address")): ((), "nonpayable"),
+        ("revoke", ("address",)): ((), "nonpayable"),
+        ("renounce_revocation", ()): ((), "nonpayable"),
+        ("set_permissionless_claims", ("bool",)): ((), "nonpayable"),
         ("recipient", ()): (("address",), "view"),
         ("token", ()): (("address",), "view"),
         ("start_time", ()): (("uint256",), "view"),
@@ -60,96 +59,134 @@ def test_escrow_preserves_deployed_abi():
         ("total_locked", ()): (("uint256",), "view"),
         ("total_claimed", ()): (("uint256",), "view"),
         ("disabled_at", ()): (("uint256",), "view"),
-        ("open_claim", ()): (("bool",), "view"),
-        ("initialized", ()): (("bool",), "view"),
-        ("owner", ()): (("address",), "view"),
+        ("revoker", ()): (("address",), "view"),
     }
-    expected.update(
-        {
-            ("version", ()): (("uint256",), "pure"),
-            (
-                "initialize",
-                ("address", "address", "address", "uint256", "uint256", "uint256", "uint256", "bool", "bool"),
-            ): (("bool",), "nonpayable"),
-            ("asset", ()): (("address",), "view"),
-            ("vested_principal", ()): (("uint256",), "view"),
-            ("claimable_principal", ()): (("uint256",), "view"),
-            ("claimable_yield", ()): (("uint256",), "view"),
-            ("claim_yield", ()): (("uint256",), "nonpayable"),
-            ("total_principal", ()): (("uint256",), "view"),
-            ("principal_claimed", ()): (("uint256",), "view"),
-            ("yield_recipient", ()): (("address",), "view"),
-            ("yield_to_owner", ()): (("bool",), "view"),
-        }
-    )
     assert actual == expected
 
-    expected_events = {
-        ("Claim", (("recipient", "address", True), ("claimed", "uint256", False))),
+    assert events(abi) == {
+        ("Claim", (("receiver", "address", True), ("amount", "uint256", False))),
         (
             "Revoked",
             (
-                ("recipient", "address", False),
-                ("owner", "address", False),
-                ("rugged", "uint256", False),
+                ("recipient", "address", True),
+                ("revoker", "address", True),
+                ("receiver", "address", True),
+                ("unvested_amount", "uint256", False),
                 ("ts", "uint256", False),
             ),
         ),
-        ("Disowned", (("owner", "address", False),)),
-        ("SetOpenClaim", (("state", "bool", False),)),
+        ("RevocationRenounced", (("revoker", "address", True),)),
+        ("PermissionlessClaimsSet", (("enabled", "bool", False),)),
     }
-    expected_events.add(("YieldClaim", (("recipient", "address", True), ("claimed", "uint256", False))))
-    assert events(abi) == expected_events
-
-    constructor = next(item for item in abi if item["type"] == "constructor")
-    assert constructor["inputs"] == []
+    assert next(item for item in abi if item["type"] == "constructor")["inputs"] == []
 
 
-def test_factory_preserves_deployed_abi():
-    abi = compile_abi("VestingEscrowFactory")
+def test_erc4626_escrow_uses_explicit_asset_and_share_units():
+    abi = compile_abi("VestingEscrow4626")
     actual = functions(abi)
-    prefix = ("address", "address", "uint256", "uint256")
-    optional = ("uint256", "uint256", "bool", "uint256", "address")
     expected = {
-        ("deploy_vesting_contract", prefix + optional[:count]): (("address",), "nonpayable")
-        for count in range(len(optional) + 1)
+        (
+            "initialize",
+            ("address", "address", "address", "uint256", "uint256", "uint256", "uint256", "bool", "address"),
+        ): (("bool",), "nonpayable"),
+        ("claimable_principal_assets", ()): (("uint256",), "view"),
+        ("preview_principal_claim", ("uint256",)): (("uint256", "uint256"), "view"),
+        ("claimable_yield_shares", ()): (("uint256",), "view"),
+        ("permissionless_claims", ()): (("bool",), "view"),
+        ("claim_principal", ("address", "uint256")): (("uint256",), "nonpayable"),
+        ("claim_yield", ()): (("uint256",), "nonpayable"),
+        ("revoke", ("address",)): ((), "nonpayable"),
+        ("renounce_revocation", ()): ((), "nonpayable"),
+        ("set_permissionless_claims", ("bool",)): ((), "nonpayable"),
+        ("recipient", ()): (("address",), "view"),
+        ("vault", ()): (("address",), "view"),
+        ("start_time", ()): (("uint256",), "view"),
+        ("end_time", ()): (("uint256",), "view"),
+        ("cliff_length", ()): (("uint256",), "view"),
+        ("principal_assets", ()): (("uint256",), "view"),
+        ("claimed_principal_assets", ()): (("uint256",), "view"),
+        ("disabled_at", ()): (("uint256",), "view"),
+        ("revoker", ()): (("address",), "view"),
+        ("yield_recipient", ()): (("address",), "view"),
     }
-    expected.update(
-        {
-            ("version", ()): (("uint256",), "pure"),
-            ("deploy_vesting_contract", prefix + optional + ("bool",)): (("address",), "nonpayable"),
-            ("TARGET", ()): (("address",), "view"),
-            ("VYPER", ()): (("address",), "view"),
-            ("escrows_length", ()): (("uint256",), "view"),
-            ("escrows", ("uint256",)): (("address",), "view"),
-        }
-    )
     assert actual == expected
 
-    expected_event = (
-        "VestingEscrowCreated",
-        (
-            ("funder", "address", True),
-            ("token", "address", True),
-            ("recipient", "address", True),
-            ("escrow", "address", False),
-            ("amount", "uint256", False),
-            ("vesting_start", "uint256", False),
-            ("vesting_duration", "uint256", False),
-            ("cliff_length", "uint256", False),
-            ("open_claim", "bool", False),
-        ),
-    )
     assert events(abi) == {
-        expected_event,
         (
-            "VestingEscrowConfigured",
+            "PrincipalClaim",
+            (
+                ("receiver", "address", True),
+                ("principal_assets", "uint256", False),
+                ("shares", "uint256", False),
+            ),
+        ),
+        ("YieldClaim", (("recipient", "address", True), ("shares", "uint256", False))),
+        (
+            "Revoked",
+            (
+                ("recipient", "address", True),
+                ("revoker", "address", True),
+                ("receiver", "address", True),
+                ("unvested_principal_assets", "uint256", False),
+                ("shares", "uint256", False),
+                ("ts", "uint256", False),
+            ),
+        ),
+        ("RevocationRenounced", (("revoker", "address", True),)),
+        ("PermissionlessClaimsSet", (("enabled", "bool", False),)),
+    }
+    assert next(item for item in abi if item["type"] == "constructor")["inputs"] == []
+
+
+def test_factory_exposes_two_explicit_deployment_paths():
+    abi = compile_abi("VestingEscrowFactory")
+    actual = functions(abi)
+    expected = {
+        (
+            "deploy_vesting_contract",
+            ("address", "address", "uint256", "uint256", "uint256", "uint256", "bool", "address"),
+        ): (("address",), "nonpayable"),
+        (
+            "deploy_erc4626_vesting",
+            ("address", "address", "uint256", "uint256", "uint256", "uint256", "bool", "address", "address"),
+        ): (("address",), "nonpayable"),
+        ("STANDARD_TARGET", ()): (("address",), "view"),
+        ("ERC4626_TARGET", ()): (("address",), "view"),
+    }
+    assert actual == expected
+
+    assert events(abi) == {
+        (
+            "TokenVestingEscrowCreated",
             (
                 ("escrow", "address", True),
-                ("owner", "address", True),
-                ("asset", "address", True),
-                ("yield_to_owner", "bool", False),
-                ("principal", "uint256", False),
+                ("token", "address", True),
+                ("recipient", "address", True),
+                ("funder", "address", False),
+                ("revoker", "address", False),
+                ("amount", "uint256", False),
+                ("vesting_start", "uint256", False),
+                ("vesting_duration", "uint256", False),
+                ("cliff_length", "uint256", False),
+                ("permissionless_claims", "bool", False),
+            ),
+        ),
+        (
+            "ERC4626VestingEscrowCreated",
+            (
+                ("escrow", "address", True),
+                ("vault", "address", True),
+                ("recipient", "address", True),
+                ("funder", "address", False),
+                ("revoker", "address", False),
+                ("yield_recipient", "address", False),
+                ("asset_token", "address", False),
+                ("funded_shares", "uint256", False),
+                ("principal_assets", "uint256", False),
+                ("vesting_start", "uint256", False),
+                ("vesting_duration", "uint256", False),
+                ("cliff_length", "uint256", False),
+                ("permissionless_claims", "bool", False),
             ),
         ),
     }

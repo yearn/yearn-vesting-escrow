@@ -1,4 +1,7 @@
+import boa
 from hypothesis import given, settings, strategies as st
+
+from tests.helpers import at, deploy
 
 
 SCALE = 10**18
@@ -26,6 +29,21 @@ def payout(principal_shares, remaining_before, remaining_after):
     if scaled_remainder % remaining_before:
         reserve += 1
     return principal_shares - reserve
+
+
+def split_at_rate(balance, assets_per_share, remaining):
+    """Mirror MockERC4626 conversions exactly, including integer rounding."""
+    if remaining == 0:
+        return 0, balance
+
+    value = balance * assets_per_share // SCALE
+    if value <= remaining:
+        return balance, 0
+
+    principal_shares = remaining * SCALE // assets_per_share
+    if principal_shares * assets_per_share // SCALE < remaining:
+        principal_shares += 1
+    return principal_shares, balance - principal_shares
 
 
 @st.composite
@@ -169,3 +187,175 @@ def test_lifecycle_conserves_every_share_and_explicit_yield_claim_drains(princip
 
     assert balance == 0
     assert distributed == total_shares
+
+
+@settings(deadline=None, max_examples=50)
+@given(
+    principal=st.integers(min_value=10**6, max_value=10**24),
+    actions=st.lists(
+        st.tuples(
+            st.integers(min_value=0, max_value=9_999),
+            st.integers(min_value=0, max_value=4 * SCALE),
+            st.integers(min_value=0, max_value=10**24),
+            st.integers(min_value=0, max_value=10_000),
+            st.booleans(),
+        ),
+        min_size=1,
+        max_size=8,
+    ),
+    revoke_bps=st.integers(min_value=0, max_value=10_000),
+)
+def test_deployed_erc4626_lifecycle_matches_model(principal, actions, revoke_bps):
+    """Differentially exercise the deployed escrow against the accounting model."""
+    with boa.env.anchor():
+        owner = boa.env.generate_address("differential-owner")
+        recipient = boa.env.generate_address("differential-recipient")
+        donor = boa.env.generate_address("differential-donor")
+        asset = deploy("test/MockToken", sender=owner)
+        vault = deploy("test/MockERC4626", asset, sender=owner)
+        standard_target = deploy("VestingEscrowSimple", sender=owner)
+        erc4626_target = deploy("VestingEscrow4626", sender=owner)
+        factory = deploy(
+            "VestingEscrowFactory",
+            standard_target,
+            erc4626_target,
+            sender=owner,
+        )
+
+        duration = 10_000
+        start = boa.env.evm.patch.timestamp + 1
+        vault.mint(owner, principal, sender=owner)
+        vault.approve(factory, principal, sender=owner)
+        escrow_address = factory.deploy_erc4626_vesting(
+            vault,
+            recipient,
+            principal,
+            duration,
+            start,
+            0,
+            True,
+            owner,
+            owner,
+            sender=owner,
+        )
+        escrow = at("VestingEscrow4626", escrow_address)
+
+        balance = principal
+        total_shares = principal
+        claimed_assets = 0
+        recipient_shares = 0
+        owner_shares = 0
+        assets_per_share = SCALE
+
+        for time_bps, new_rate, donation, claim_bps, take_yield in sorted(actions):
+            if time_bps > revoke_bps:
+                break
+
+            timestamp = start + time_bps
+            boa.env.time_travel(seconds=timestamp - boa.env.evm.patch.timestamp)
+            assets_per_share = new_rate
+            vault.set_assets_per_share(assets_per_share, sender=owner)
+
+            if donation > 0:
+                vault.mint(donor, donation, sender=owner)
+                vault.transfer(escrow, donation, sender=donor)
+                balance += donation
+                total_shares += donation
+
+            vested_assets = principal * time_bps // 10_000
+            available_assets = vested_assets - claimed_assets
+            claim_assets = available_assets * claim_bps // 10_000
+            remaining_assets = principal - claimed_assets
+            principal_pool, _ = split_at_rate(balance, assets_per_share, remaining_assets)
+            expected_claim_shares = payout(
+                principal_pool,
+                remaining_assets,
+                remaining_assets - claim_assets,
+            )
+
+            assert (
+                escrow.claim_principal(recipient, claim_assets, sender=recipient)
+                == expected_claim_shares
+            )
+            balance -= expected_claim_shares
+            claimed_assets += claim_assets
+            recipient_shares += expected_claim_shares
+
+            if take_yield:
+                remaining_assets = principal - claimed_assets
+                _, expected_yield_shares = split_at_rate(
+                    balance,
+                    assets_per_share,
+                    remaining_assets,
+                )
+                assert escrow.claim_yield(sender=donor) == expected_yield_shares
+                balance -= expected_yield_shares
+                owner_shares += expected_yield_shares
+
+            remaining_assets = principal - claimed_assets
+            claimable_assets = vested_assets - claimed_assets
+            principal_pool, expected_yield_shares = split_at_rate(
+                balance,
+                assets_per_share,
+                remaining_assets,
+            )
+            expected_claimable_shares = payout(
+                principal_pool,
+                remaining_assets,
+                remaining_assets - claimable_assets,
+            )
+
+            assert escrow.claimed_principal_assets() == claimed_assets
+            assert escrow.claimable_principal_assets() == claimable_assets
+            assert escrow.preview_principal_claim(UINT256_MAX) == (
+                claimable_assets,
+                expected_claimable_shares,
+            )
+            assert escrow.claimable_yield_shares() == expected_yield_shares
+            assert vault.balanceOf(escrow) == balance
+            assert vault.balanceOf(recipient) == recipient_shares
+            assert vault.balanceOf(owner) == owner_shares
+
+        final_vested_assets = principal
+        if revoke_bps < 10_000:
+            timestamp = start + revoke_bps
+            boa.env.time_travel(seconds=timestamp - boa.env.evm.patch.timestamp)
+            final_vested_assets = principal * revoke_bps // 10_000
+            remaining_assets = principal - claimed_assets
+            recipient_assets = final_vested_assets - claimed_assets
+            principal_pool, yield_shares = split_at_rate(
+                balance,
+                assets_per_share,
+                remaining_assets,
+            )
+            clawback_shares = payout(
+                principal_pool,
+                remaining_assets,
+                recipient_assets,
+            )
+
+            escrow.revoke(owner, sender=owner)
+            balance -= clawback_shares + yield_shares
+            owner_shares += clawback_shares + yield_shares
+
+        else:
+            timestamp = start + duration
+            boa.env.time_travel(seconds=timestamp - boa.env.evm.patch.timestamp)
+
+        remaining_assets = final_vested_assets - claimed_assets
+        principal_pool, _ = split_at_rate(balance, assets_per_share, remaining_assets)
+        assert escrow.claim_principal(recipient, UINT256_MAX, sender=recipient) == principal_pool
+        balance -= principal_pool
+        recipient_shares += principal_pool
+        claimed_assets = final_vested_assets
+
+        _, final_yield_shares = split_at_rate(balance, assets_per_share, 0)
+        assert escrow.claim_yield(sender=donor) == final_yield_shares
+        balance -= final_yield_shares
+        owner_shares += final_yield_shares
+
+        assert escrow.claimed_principal_assets() == claimed_assets
+        assert balance == vault.balanceOf(escrow) == 0
+        assert vault.balanceOf(recipient) == recipient_shares
+        assert vault.balanceOf(owner) == owner_shares
+        assert recipient_shares + owner_shares == total_shares

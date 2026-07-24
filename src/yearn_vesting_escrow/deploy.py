@@ -1,4 +1,4 @@
-"""Deploy the escrow implementation and factory.
+"""Deploy both escrow implementations and the factory.
 
 This is development tooling, not the production rollout script. Network secrets
 are read from the environment and never accepted as command-line values.
@@ -14,7 +14,6 @@ from eth_account import Account
 
 
 CONTRACTS = Path(__file__).resolve().parents[2] / "contracts"
-VYPER_DONATE = "0x70CCBE10F980d80b7eBaab7D2E3A73e87D67B775"
 
 
 def configure_environment(rpc_url, private_key_env, expected_chain_id):
@@ -36,19 +35,19 @@ def configure_environment(rpc_url, private_key_env, expected_chain_id):
     return account.address, chain_id
 
 
-def deploy_contracts(deployer, vyper_donate):
-    target = boa.load(CONTRACTS / "VestingEscrowSimple.vy", sender=deployer)
+def deploy_contracts(deployer):
+    standard_target = boa.load(CONTRACTS / "VestingEscrowSimple.vy", sender=deployer)
+    erc4626_target = boa.load(CONTRACTS / "VestingEscrow4626.vy", sender=deployer)
     factory = boa.load(
         CONTRACTS / "VestingEscrowFactory.vy",
-        target,
-        vyper_donate,
+        standard_target,
+        erc4626_target,
         sender=deployer,
     )
 
-    assert factory.TARGET() == target.address
-    assert factory.VYPER() == vyper_donate
-    assert target.version() == factory.version() == 2
-    return target, factory
+    assert factory.STANDARD_TARGET() == standard_target.address
+    assert factory.ERC4626_TARGET() == erc4626_target.address
+    return standard_target, erc4626_target, factory
 
 
 def main():
@@ -56,7 +55,6 @@ def main():
     parser.add_argument("--rpc-url", default=os.environ.get("RPC_URL"))
     parser.add_argument("--private-key-env", default="DEPLOYER_PRIVATE_KEY")
     parser.add_argument("--expected-chain-id", type=int)
-    parser.add_argument("--vyper-donate", default=VYPER_DONATE)
     args = parser.parse_args()
 
     deployer, chain_id = configure_environment(
@@ -64,15 +62,15 @@ def main():
         args.private_key_env,
         args.expected_chain_id,
     )
-    target, factory = deploy_contracts(deployer, args.vyper_donate)
+    standard_target, erc4626_target, factory = deploy_contracts(deployer)
 
     print(
         json.dumps(
             {
                 "chain_id": chain_id,
                 "deployer": str(deployer),
-                "vyper_donate": args.vyper_donate,
-                "target": str(target.address),
+                "standard_target": str(standard_target.address),
+                "erc4626_target": str(erc4626_target.address),
                 "factory": str(factory.address),
             },
             indent=2,

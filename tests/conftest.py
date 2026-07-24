@@ -62,22 +62,21 @@ def cliff_duration(duration):
 
 
 @pytest.fixture(scope="module")
-def vesting_target(owner):
+def standard_target(owner):
     return deploy("VestingEscrowSimple", sender=owner)
 
 
 @pytest.fixture(scope="module")
-def vyper_donation(accounts):
-    # vyperlang.eth
-    return accounts[3]
+def erc4626_target(owner):
+    return deploy("VestingEscrow4626", sender=owner)
 
 
 @pytest.fixture(scope="module")
-def vesting_factory(owner, vesting_target, vyper_donation):
+def vesting_factory(owner, standard_target, erc4626_target):
     return deploy(
         "VestingEscrowFactory",
-        vesting_target,
-        vyper_donation,
+        standard_target,
+        erc4626_target,
         sender=owner,
     )
 
@@ -103,18 +102,8 @@ def another_amount():
 
 
 @pytest.fixture(scope="module")
-def open_claim():
+def permissionless_claims():
     return True
-
-
-@pytest.fixture(scope="module")
-def support_vyper():
-    return 10
-
-
-@pytest.fixture(scope="module")
-def support_amount(amount, support_vyper):
-    return amount * support_vyper // 10_000
 
 
 @pytest.fixture
@@ -125,18 +114,16 @@ def vesting(
     token,
     another_token,
     amount,
-    support_amount,
     another_amount,
     start_time,
     cliff_duration,
-    open_claim,
+    permissionless_claims,
     duration,
-    support_vyper,
 ):
-    token.mint(owner, amount + support_amount, sender=owner)
+    token.mint(owner, amount, sender=owner)
     another_token.mint(owner, another_amount, sender=owner)
 
-    token.approve(vesting_factory, amount + support_amount, sender=owner)
+    token.approve(vesting_factory, amount, sender=owner)
     escrow = vesting_factory.deploy_vesting_contract(
         token,
         recipient,
@@ -144,10 +131,8 @@ def vesting(
         duration,
         start_time,
         cliff_duration,
-        open_claim,
-        support_vyper,
+        permissionless_claims,
         owner,
-        False,
         sender=owner,
     )
     return at("VestingEscrowSimple", escrow)
@@ -163,21 +148,20 @@ def yield_vesting(
     duration,
     start_time,
     cliff_duration,
-    open_claim,
+    permissionless_claims,
 ):
     vault.mint(owner, amount, sender=owner)
     vault.approve(vesting_factory, amount, sender=owner)
-    escrow = vesting_factory.deploy_vesting_contract(
+    escrow = vesting_factory.deploy_erc4626_vesting(
         vault,
         recipient,
         amount,
         duration,
         start_time,
         cliff_duration,
-        open_claim,
-        0,
+        permissionless_claims,
         owner,
-        True,
+        owner,
         sender=owner,
     )
-    return at("VestingEscrowSimple", escrow)
+    return at("VestingEscrow4626", escrow)
