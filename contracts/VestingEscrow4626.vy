@@ -8,9 +8,6 @@
 @notice Vests underlying-asset principal while holding and paying ERC-4626 shares
 """
 
-from modules import vesting_math
-
-
 interface IERC4626:
     def asset() -> address: view
     def convertToAssets(shares: uint256) -> uint256: view
@@ -132,13 +129,15 @@ def _vesting_end() -> uint256:
 @internal
 @view
 def _vested_principal_assets(time: uint256) -> uint256:
-    return vesting_math.vested_at(
-        self.principal_assets,
-        self.start_time,
-        self.end_time,
-        self.cliff_length,
-        time,
-    )
+    start_time: uint256 = self.start_time
+    if time < start_time + self.cliff_length:
+        return 0
+
+    end_time: uint256 = self.end_time
+    if time >= end_time:
+        return self.principal_assets
+
+    return self.principal_assets * (time - start_time) // (end_time - start_time)
 
 
 @internal
@@ -171,6 +170,26 @@ def _split_principal_and_yield(remaining_assets: uint256) -> (uint256, uint256):
 
 
 @internal
+@pure
+def _payout_shares(
+    principal_shares: uint256,
+    principal_before: uint256,
+    principal_after: uint256,
+) -> uint256:
+    """Pay shares while rounding the remaining reserve up."""
+    if principal_after == 0:
+        return principal_shares
+
+    whole: uint256 = principal_shares // principal_before
+    remainder: uint256 = principal_shares % principal_before
+    scaled_remainder: uint256 = remainder * principal_after
+    reserve: uint256 = whole * principal_after + scaled_remainder // principal_before
+    if scaled_remainder % principal_before > 0:
+        reserve += 1
+    return principal_shares - reserve
+
+
+@internal
 @view
 def _preview_principal_claim(time: uint256, max_principal_assets: uint256) -> (uint256, uint256):
     remaining_assets: uint256 = self._remaining_principal_assets()
@@ -183,7 +202,7 @@ def _preview_principal_claim(time: uint256, max_principal_assets: uint256) -> (u
     principal_shares, ignored_yield = self._split_principal_and_yield(remaining_assets)
     return (
         claimable_assets,
-        vesting_math.payout_shares(
+        self._payout_shares(
             principal_shares,
             remaining_assets,
             remaining_assets - claimable_assets,
@@ -277,7 +296,7 @@ def revoke(receiver: address):
     principal_shares: uint256 = 0
     yield_shares: uint256 = 0
     principal_shares, yield_shares = self._split_principal_and_yield(remaining_assets)
-    unvested_shares: uint256 = vesting_math.payout_shares(
+    unvested_shares: uint256 = self._payout_shares(
         principal_shares,
         remaining_assets,
         recipient_assets,

@@ -9,7 +9,6 @@
 """
 
 from ethereum.ercs import IERC20
-from modules import vesting_math
 
 
 event Claim:
@@ -102,13 +101,15 @@ def _vesting_end() -> uint256:
 @internal
 @view
 def _total_vested_at(time: uint256) -> uint256:
-    return vesting_math.vested_at(
-        self.total_locked,
-        self.start_time,
-        self.end_time,
-        self.cliff_length,
-        time,
-    )
+    start_time: uint256 = self.start_time
+    if time < start_time + self.cliff_length:
+        return 0
+
+    end_time: uint256 = self.end_time
+    if time >= end_time:
+        return self.total_locked
+
+    return self.total_locked * (time - start_time) // (end_time - start_time)
 
 
 @internal

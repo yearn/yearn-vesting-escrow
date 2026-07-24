@@ -14,9 +14,9 @@ factory:
 The factory exposes `deploy_vesting_contract()` for standard tokens and
 `deploy_erc4626_vesting()` for vault shares. Each function has one full,
 explicit signature; defaults belong in deployment tooling rather than
-contract-generated overloads. Both implementations share only stateless
-vesting arithmetic through `modules/vesting_math.vy`; their storage, external
-APIs, and accounting remain separate.
+contract-generated overloads. Both implement the same linear vesting behavior,
+but their storage, arithmetic, external APIs, and accounting remain
+independent.
 
 Both escrow types use the same role vocabulary:
 
