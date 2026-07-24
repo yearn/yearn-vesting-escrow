@@ -134,8 +134,8 @@ claimable_yield_shares()
 
 Refresh previews immediately before execution because vault conversions may
 change between blocks. Do not submit a principal claim when its preview has
-positive asset entitlement but zero output shares; the call would consume the
-asset entitlement without making a share transfer.
+positive asset entitlement but zero output shares; `claim_principal` reverts
+with `claim too small` without consuming the asset entitlement.
 
 ## Claims
 
