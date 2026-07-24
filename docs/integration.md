@@ -28,7 +28,8 @@ principal.
 Before building the transaction, record:
 
 - token or vault address;
-- raw token amount or raw vault share amount;
+- raw token amount or exact ERC-4626 principal in underlying asset units;
+- maximum vault shares the ERC-4626 funder will spend;
 - recipient;
 - start timestamp, duration, and cliff length in seconds;
 - whether permissionless principal claiming begins enabled;
@@ -44,11 +45,16 @@ The funder approves the factory, not the implementation or predicted proxy:
 
 ```text
 standard: token.approve(factory, amount)
-ERC-4626: vault.approve(factory, funded_shares)
+ERC-4626:
+    quoted_shares = factory.preview_erc4626_funding(vault, principal_assets)
+    max_funded_shares >= quoted_shares
+    vault.approve(factory, max_funded_shares)
 ```
 
-The factory requires the new proxy's balance to increase by exactly the
-requested amount. Fee-on-transfer assets revert.
+The ERC-4626 maximum is an explicit slippage bound, not the amount necessarily
+spent. The factory recomputes the quote during deployment, reverts if it exceeds
+the maximum, and pulls only the actual quote. The new proxy's balance must
+increase by exactly the transferred amount, so fee-on-transfer assets revert.
 
 ### 3. Call one full factory signature
 
@@ -57,17 +63,17 @@ Use the exact 0.4.0 selector:
 ```text
 deploy_vesting_contract(address,address,uint256,uint256,uint256,uint256,bool,address)
 
-deploy_erc4626_vesting(address,address,uint256,uint256,uint256,uint256,bool,address,address)
+deploy_erc4626_vesting(address,address,uint256,uint256,uint256,uint256,uint256,bool,address,address)
 ```
 
 There are no shorter default-argument overloads.
 
 ### 4. Read the creation event
 
-Use the returned address and the matching creation event. Verify that every
-event field equals the reviewed input. For ERC-4626, also show the emitted
-`principal_assets`, which is the initialization-time asset value of the funded
-shares.
+Use the returned address and the matching creation event. Verify every supplied
+configuration field. For ERC-4626, verify that emitted `principal_assets` equals
+the requested promise and show emitted `funded_shares` as the actual execution
+cost.
 
 The factory does not expose `escrows()` or `escrows_length()`.
 
@@ -189,8 +195,8 @@ An interface should:
 - retain the transaction hash and log index with every indexed escrow.
 
 An ERC-4626 interface should additionally show current share price, previewed
-share output, yield shares, and any vault pause or upgrade risk available to
-the integrator.
+funding shares, the selected maximum, principal-claim share output, yield
+shares, and any vault pause or upgrade risk available to the integrator.
 
 ## Migrating from v0.3
 
@@ -201,7 +207,7 @@ globally for existing addresses.
 | --- | --- |
 | `TARGET()` | `STANDARD_TARGET()` and `ERC4626_TARGET()` |
 | `deploy_vesting_contract(... open_claim, support_vyper, owner)` plus overloads | One explicit standard deployment signature using `permissionless_claims` and `revoker` |
-| No dedicated vault deployment | `deploy_erc4626_vesting(...)` |
+| No dedicated vault deployment | Asset-denominated `deploy_erc4626_vesting(... principal_assets, max_funded_shares, ...)` |
 | `owner()` | `revoker()` |
 | `open_claim()` | `permissionless_claims()` |
 | `unclaimed()` | `claimable()` for standard escrows |

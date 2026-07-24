@@ -39,7 +39,8 @@ deploy_vesting_contract(
 deploy_erc4626_vesting(
     vault,
     recipient,
-    funded_shares,
+    principal_assets,
+    max_funded_shares,
     vesting_duration,
     vesting_start,
     cliff_length,
@@ -48,6 +49,10 @@ deploy_erc4626_vesting(
     yield_recipient,
 )
 ```
+
+ERC-4626 callers choose an exact asset-denominated principal and cap the shares
+spent to fund it. `preview_erc4626_funding(vault, principal_assets)` quotes the
+factory's current rounded-up share requirement.
 
 Factory creation events are the canonical escrow index. The contracts do not
 maintain a duplicate on-chain registry.

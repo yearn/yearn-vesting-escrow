@@ -50,10 +50,23 @@ proxy before initializing it.
 ### ERC-4626 escrow deployment
 
 ```vyper
+preview_erc4626_funding(
+    vault: address,
+    principal_assets: uint256,
+) -> uint256
+```
+
+Returns the current number of shares the factory would pull to fully back the
+requested principal. It starts with `vault.convertToShares(principal_assets)`
+and adds one raw share when converting the result back to assets would
+underfund principal.
+
+```vyper
 deploy_erc4626_vesting(
     vault: address,
     recipient: address,
-    funded_shares: uint256,
+    principal_assets: uint256,
+    max_funded_shares: uint256,
     vesting_duration: uint256,
     vesting_start: uint256,
     cliff_length: uint256,
@@ -63,15 +76,18 @@ deploy_erc4626_vesting(
 ) -> address
 ```
 
-The caller must approve the factory for at least `funded_shares` vault shares.
-`principal_assets` is fixed during initialization from
-`vault.convertToAssets(funded_shares)`.
+The caller chooses the exact asset-denominated principal and approves the
+factory for `max_funded_shares` vault shares. At execution, the factory computes
+the same rounded-up quote as `preview_erc4626_funding`, reverts if it exceeds
+the maximum, and transfers only the quoted shares. Unused allowance is not
+consumed.
 
 | Parameter | Meaning |
 | --- | --- |
 | `vault` | ERC-4626 share token held by the escrow. |
 | `recipient` | Owner of vested principal. |
-| `funded_shares` | Exact number of vault shares transferred into the new escrow. |
+| `principal_assets` | Exact vesting principal in underlying asset units. Maximum `2**128 - 1`. |
+| `max_funded_shares` | Maximum vault shares the factory may transfer from the funder. |
 | `vesting_duration` | Schedule length in seconds. |
 | `vesting_start` | Unix timestamp at which linear principal vesting starts. |
 | `cliff_length` | Seconds after `vesting_start` before accumulated principal becomes claimable. |
@@ -219,9 +235,10 @@ preview_principal_claim(max_principal_assets: uint256)
 claimable_yield_shares() -> uint256
 ```
 
-`principal_assets` is the initialization-time asset value of the funded shares.
-It does not rebase with vault performance. `claimed_principal_assets` tracks
-schedule entitlement consumed, while the escrow transfers vault shares.
+`principal_assets` is the exact asset-denominated promise selected at
+deployment. It does not rebase with vault performance.
+`claimed_principal_assets` tracks schedule entitlement consumed, while the
+escrow transfers vault shares.
 
 `preview_principal_claim` returns both units explicitly. Its second value is the
 expected share transfer under the vault's current conversion rate. A vault

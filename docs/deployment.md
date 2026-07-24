@@ -102,7 +102,8 @@ The defaults are:
 | `MAINNET_BLOCK` | `25587000` |
 | `ERC4626_VAULT` | sUSDS at `0xa3931d71877C0E7a3148CB7Eb4463524FEc27fbD` |
 | `ERC4626_HOLDER` | Account funded with shares at the pinned block |
-| `ERC4626_AMOUNT` | `10**18` raw shares |
+| `ERC4626_PRINCIPAL_ASSETS` | `10**18` raw underlying asset units |
+| `ERC4626_MAX_FUNDED_SHARES` | Current rounded-up factory quote |
 
 Override all vault-specific values together when testing another vault:
 
@@ -111,7 +112,8 @@ MAINNET_RPC=https://... \
 MAINNET_BLOCK=... \
 ERC4626_VAULT=0x... \
 ERC4626_HOLDER=0x... \
-ERC4626_AMOUNT=... \
+ERC4626_PRINCIPAL_ASSETS=... \
+ERC4626_MAX_FUNDED_SHARES=... \
   uv run --locked vesting-escrow-fork-smoke
 ```
 
@@ -180,6 +182,8 @@ source commit and compare before announcing addresses.
 ### Canary escrows
 
 - Create low-value standard and ERC-4626 escrows.
+- Compare `preview_erc4626_funding` with the actual funded shares and exercise
+  the maximum-share revert.
 - Decode and compare every creation event field.
 - Exercise partial and full principal claims.
 - Exercise recipient-selected and permissionless claim routes.

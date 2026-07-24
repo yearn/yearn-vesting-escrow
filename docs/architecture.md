@@ -13,8 +13,9 @@ The deployment consists of three contracts:
    immutables.
 
 For each escrow, the factory creates an ERC-1167 minimal proxy, transfers the
-exact requested tokens or shares into it, and initializes it in the same
-transaction. A failure in any step reverts the complete deployment.
+exact standard-token amount or the execution-time ERC-4626 share quote into it,
+and initializes it in the same transaction. A failure in any step reverts the
+complete deployment.
 
 The implementation contracts mark themselves initialized in their
 constructors. Their code can therefore only be used through a fresh proxy. An
@@ -65,10 +66,13 @@ the linear slope.
 
 The factory requires:
 
-- a nonzero amount or share amount;
+- a nonzero token amount or asset-denominated ERC-4626 principal;
 - `0 < vesting_duration <= 2**64 - 1`;
 - `cliff_length <= vesting_duration`;
 - `vesting_start + vesting_duration > block.timestamp`.
+
+ERC-4626 deployment also requires the execution-time rounded-up share quote not
+to exceed the caller's `max_funded_shares`.
 
 The start may be in the past, but the end must still be in the future when the
 escrow is deployed.
