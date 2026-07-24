@@ -1,8 +1,30 @@
 # Development and deployment
 
-Version 0.4.0 is unreleased, unaudited, and has no production deployment. This
-guide documents the repository tooling and the review gates required before a
-future rollout.
+Version 0.4.0 is deployed and source-verified on Ethereum mainnet from frozen
+contract sources. Its release tag is pending post-deployment validation, and it
+has not received an independent audit. This guide records the deployment and
+the remaining rollout gates.
+
+## Ethereum mainnet deployment
+
+The contracts were deployed on 2026-07-24 from source commit
+[`792c21b`](https://github.com/yearn/yearn-vesting-escrow/commit/792c21b230244943bee043505e6510d92737e01a)
+with Vyper 0.4.3 targeting Prague:
+
+| Contract | Address | Deployment transaction |
+| --- | --- | --- |
+| `VestingEscrowSimple` | [`0x4CaE…2388`](https://etherscan.io/address/0x4cae5c8d3fae0f1e7f005975cbfc0df1d4c32388#code) | [`0xbc34…874f`](https://etherscan.io/tx/0xbc347da4b7f66ad29865c6df0b71989c046b8a55184c001e0608071edbf4874f) |
+| `VestingEscrow4626` | [`0x569C…665A`](https://etherscan.io/address/0x569c2e7045dcbef8b77b092d25dbbaf3a37e665a#code) | [`0xac7c…2010`](https://etherscan.io/tx/0xac7c83e008c2e9f2aa08bd641acad866e54f304ea3b4c19ae4af32f1bf782010) |
+| `VestingEscrowFactory` | [`0xFbd9…0215`](https://etherscan.io/address/0xfbd94e2d6942d5b4ed0c5c9c43bded77a8f20215#code) | [`0xd9a5…99b2`](https://etherscan.io/tx/0xd9a585c91dccb9eca3b4cccda33ab432f5bdd2d30b899448dc91b02d062d99b2) |
+
+Etherscan verifies all three contracts with Vyper 0.4.3 and gas optimization.
+Sourcify records exact creation matches for the
+[standard implementation](https://repo.sourcify.dev/1/0x4CaE5c8d3fAe0f1e7F005975cbFc0dF1D4C32388),
+[ERC-4626 implementation](https://repo.sourcify.dev/1/0x569C2E7045dCbEf8B77b092D25dBBAf3A37E665A),
+and [factory](https://repo.sourcify.dev/1/0xFbd94e2D6942D5b4Ed0C5C9C43bded77a8f20215).
+The immutable machine-readable
+[deployment manifest](../deployments/ethereum/0.4.0.json) records full
+addresses, blocks, hashes, constructor arguments, and verification URLs.
 
 ## Prerequisites
 
@@ -134,8 +156,10 @@ is empty.
 
 ## Production manifest
 
-A production deployment should begin from an immutable reviewed manifest
-containing at least:
+The 0.4.0 deployment is recorded in
+[`deployments/ethereum/0.4.0.json`](../deployments/ethereum/0.4.0.json).
+Future deployments should begin from an immutable reviewed manifest containing
+at least:
 
 ```text
 release

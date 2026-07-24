@@ -3,9 +3,10 @@
 Vesting escrows for standard ERC-20 tokens and ERC-4626 vault shares.
 
 > [!IMPORTANT]
-> Version 0.4.0 is unreleased, unaudited, and not deployed. The contracts on
-> `master` have a new ABI and must not be confused with the immutable historical
-> deployments listed below.
+> Version 0.4.0 is deployed on Ethereum mainnet from
+> [frozen sources at `792c21b`](https://github.com/yearn/yearn-vesting-escrow/commit/792c21b230244943bee043505e6510d92737e01a).
+> The release tag is pending post-deployment validation, and this version has
+> not received an independent audit.
 
 ## Contracts
 
@@ -100,8 +101,8 @@ mainnet-fork testing, and the production checklist.
 ## Escrow manager
 
 Wavey's [Vesting Escrow app](https://vest.wavey.info/) provides an interface to
-find and manage escrows deployed by the current Yearn factory and the LlamaPay
-v2 factory. The app and its Ethereum event indexer are
+find and manage escrows deployed by the historical Yearn v0.3.0 factory and the
+LlamaPay v2 factory. The app and its Ethereum event indexer are
 [open source](https://github.com/wavey0x/vesting-escrow-app).
 
 The app is independent software. This contracts repository does not index or
@@ -109,12 +110,25 @@ operate deployed escrows.
 
 ## Production deployments
 
-Existing factories and escrows are immutable and unaffected by development of
-0.4.0. Integrators must select the ABI matching each deployed version.
+Every factory and escrow listed here is immutable. Integrators must select the
+ABI matching each deployed version and factory address.
+
+### [v0.4.0](https://github.com/yearn/yearn-vesting-escrow/commit/792c21b230244943bee043505e6510d92737e01a) (release tag pending)
+
+The 0.4.0 contract sources are frozen at commit
+[`792c21b`](https://github.com/yearn/yearn-vesting-escrow/commit/792c21b230244943bee043505e6510d92737e01a).
+All three contracts have exact creation matches on Sourcify and are verified on
+Etherscan. See the
+[deployment manifest](deployments/ethereum/0.4.0.json) for transactions,
+blocks, compiler settings, and bytecode hashes.
+
+- Factory: [`0xFbd94e2D6942D5b4Ed0C5C9C43bded77a8f20215`](https://etherscan.io/address/0xfbd94e2d6942d5b4ed0c5c9c43bded77a8f20215#code)
+- Standard implementation: [`0x4CaE5c8d3fAe0f1e7F005975cbFc0dF1D4C32388`](https://etherscan.io/address/0x4cae5c8d3fae0f1e7f005975cbfc0df1d4c32388#code)
+- ERC-4626 implementation: [`0x569C2E7045dCbEf8B77b092D25dBBAf3A37E665A`](https://etherscan.io/address/0x569c2e7045dcbef8b77b092d25dbbaf3a37e665a#code)
 
 ### [v0.3.0](https://github.com/yearn/yearn-vesting-escrow/tree/v0.3.0)
 
-This is the current Yearn production factory.
+This is the previous Yearn production factory.
 
 - Factory: [`0x200C92Dd85730872Ab6A1e7d5E40A067066257cF`](https://etherscan.io/address/0x200c92dd85730872ab6a1e7d5e40a067066257cf#code)
 - Implementation: [`0x9692F652A3048eb7F5074e12B907F20d33F37a01`](https://etherscan.io/address/0x9692f652a3048eb7f5074e12b907f20d33f37a01#code)

@@ -1,7 +1,12 @@
 # Integration guide
 
 This guide covers creation, discovery, lifecycle transactions, and migration to
-the unreleased 0.4.0 ABI.
+the deployed 0.4.0 ABI.
+
+The Ethereum mainnet 0.4.0 factory is
+[`0xFbd94e2D6942D5b4Ed0C5C9C43bded77a8f20215`](https://etherscan.io/address/0xfbd94e2d6942d5b4ed0c5c9c43bded77a8f20215#code).
+Its deployment block is `25,602,335`. Resolve both chain ID and factory address
+before encoding any transaction.
 
 ## Choose the escrow type
 
@@ -86,7 +91,7 @@ The factory does not expose `escrows()` or `escrows_length()`.
 
 ## Index escrows
 
-Index both factory event signatures from the factory's deployment block:
+Index both factory event signatures from Ethereum mainnet block `25,602,335`:
 
 - `TokenVestingEscrowCreated`;
 - `ERC4626VestingEscrowCreated`.

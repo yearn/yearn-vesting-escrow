@@ -2,7 +2,12 @@
 
 `VestingEscrowFactory` deploys funded ERC-1167 minimal proxies for standard
 ERC-20 vesting and ERC-4626 principal vesting. This page describes the complete
-factory surface for the unreleased 0.4.0 release.
+factory surface for the deployed 0.4.0 contracts.
+
+The Ethereum mainnet factory is
+[`0xFbd94e2D6942D5b4Ed0C5C9C43bded77a8f20215`](https://etherscan.io/address/0xfbd94e2d6942d5b4ed0c5c9c43bded77a8f20215#code).
+Its immutable targets and deployment provenance are recorded in the
+[0.4.0 manifest](../../deployments/ethereum/0.4.0.json).
 
 The factory has no owner, mutable configuration, upgrade mechanism, or escrow
 registry. Creation events are the canonical escrow index.

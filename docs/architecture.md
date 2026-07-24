@@ -1,6 +1,6 @@
 # Architecture and security model
 
-This document describes the unreleased 0.4.0 contracts. Historical deployments
+This document describes the deployed 0.4.0 contracts. Historical deployments
 use different code and ABIs.
 
 ## Topology
@@ -197,6 +197,6 @@ cover:
 - schedule units and timestamps;
 - source verification, event indexing, and low-value canary escrows.
 
-Version 0.4.0 is not production-ready until an independent audit and the
-deployment process described in [the deployment guide](deployment.md) are
-complete.
+Version 0.4.0 is deployed and source-verified but has not received an
+independent audit. Complete the remaining canary, integration, and monitoring
+steps in [the deployment guide](deployment.md) before recommending broad use.

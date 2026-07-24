@@ -1,0 +1,102 @@
+{
+  "version": "0.4.0",
+  "network": {
+    "name": "Ethereum mainnet",
+    "chain_id": 1
+  },
+  "deployment_date": "2026-07-24",
+  "source": {
+    "repository": "https://github.com/yearn/yearn-vesting-escrow",
+    "commit": "792c21b230244943bee043505e6510d92737e01a",
+    "contract_sources_frozen": true
+  },
+  "compiler": {
+    "name": "vyper",
+    "version": "0.4.3+commit.bff19ea2",
+    "optimization": "gas",
+    "evm_version": "prague"
+  },
+  "deployer": "0x7A1057E6e9093DA9C1D4C1D049609B6889fC4c67",
+  "contracts": {
+    "VestingEscrowSimple": {
+      "source": "contracts/VestingEscrowSimple.vy",
+      "source_sha256": "711c229a1c0731e5d2a21a45727feadf3f0f1f24807c9d5fbae66cc0d87cdb01",
+      "address": "0x4CaE5c8d3fAe0f1e7F005975cbFc0dF1D4C32388",
+      "deployment_transaction": "0xbc347da4b7f66ad29865c6df0b71989c046b8a55184c001e0608071edbf4874f",
+      "deployment_block": 25602315,
+      "gas_used": 528209,
+      "creation_bytecode_size": 2175,
+      "creation_bytecode_sha256": "46d47699e98d571f61707c3b3baa9ddb18e8187f4083a813acadd3202db60403",
+      "compiler_runtime_bytecode_size": 2091,
+      "compiler_runtime_bytecode_sha256": "1c3707a1b515584bbec3862ecbd64ac86ba7272ff4fab768035e6e71cea27ed6",
+      "onchain_runtime_bytecode_size": 2091,
+      "onchain_runtime_bytecode_keccak256": "0xe2571bdcf04c3f913683790fc6ecc96200605bdfc14e2bb8726983b9a655a4a0",
+      "verification": {
+        "etherscan": {
+          "status": "verified",
+          "url": "https://etherscan.io/address/0x4cae5c8d3fae0f1e7f005975cbfc0df1d4c32388#code"
+        },
+        "sourcify": {
+          "creation_match": "exact_match",
+          "runtime_match": "match",
+          "url": "https://repo.sourcify.dev/1/0x4CaE5c8d3fAe0f1e7F005975cbFc0dF1D4C32388"
+        }
+      }
+    },
+    "VestingEscrow4626": {
+      "source": "contracts/VestingEscrow4626.vy",
+      "source_sha256": "3aaba3c5bc17d4034c5261808ade2c23807ebb831bf715e06fcfda469bc402cc",
+      "address": "0x569C2E7045dCbEf8B77b092D25dBBAf3A37E665A",
+      "deployment_transaction": "0xac7c83e008c2e9f2aa08bd641acad866e54f304ea3b4c19ae4af32f1bf782010",
+      "deployment_block": 25602329,
+      "gas_used": 909191,
+      "creation_bytecode_size": 3937,
+      "creation_bytecode_sha256": "e46266f5ec384af97dc9e934af3e2b7a9bd50fd8da58d644fb180619e86b71bb",
+      "compiler_runtime_bytecode_size": 3853,
+      "compiler_runtime_bytecode_sha256": "7a0016795c99af3a6a9c102a5af6dbe880c1cfa3dcacc4562c2166871b73262a",
+      "onchain_runtime_bytecode_size": 3853,
+      "onchain_runtime_bytecode_keccak256": "0x2bd09f932e751ad34f3fc67b669551455fa37597f0477585863abf5f53bc163b",
+      "verification": {
+        "etherscan": {
+          "status": "verified",
+          "url": "https://etherscan.io/address/0x569c2e7045dcbef8b77b092d25dbbaf3a37e665a#code"
+        },
+        "sourcify": {
+          "creation_match": "exact_match",
+          "runtime_match": "match",
+          "url": "https://repo.sourcify.dev/1/0x569C2E7045dCbEf8B77b092D25dBBAf3A37E665A"
+        }
+      }
+    },
+    "VestingEscrowFactory": {
+      "source": "contracts/VestingEscrowFactory.vy",
+      "source_sha256": "d947f7eae8cc07af68867a6820edc72bfaf4c951ff3ad58cf75fb67b9f0e534a",
+      "address": "0xFbd94e2D6942D5b4Ed0C5C9C43bded77a8f20215",
+      "deployment_transaction": "0xd9a585c91dccb9eca3b4cccda33ab432f5bdd2d30b899448dc91b02d062d99b2",
+      "deployment_block": 25602335,
+      "gas_used": 538900,
+      "constructor": {
+        "standard_target": "0x4CaE5c8d3fAe0f1e7F005975cbFc0dF1D4C32388",
+        "erc4626_target": "0x569C2E7045dCbEf8B77b092D25dBBAf3A37E665A",
+        "abi_encoded_arguments": "0x0000000000000000000000004cae5c8d3fae0f1e7f005975cbfc0df1d4c32388000000000000000000000000569c2e7045dcbef8b77b092d25dbbaf3a37e665a"
+      },
+      "creation_bytecode_size": 2321,
+      "creation_bytecode_sha256": "405314cd734c25d30dcfebfa600c1ab7eed6c2ab5ef737dd274878fd438a39b4",
+      "compiler_runtime_bytecode_size": 2152,
+      "compiler_runtime_bytecode_sha256": "a918cd0194983d003a3ac42c21714f591deef5029ec005a023168f5a3e56014d",
+      "onchain_runtime_bytecode_size": 2216,
+      "onchain_runtime_bytecode_keccak256": "0xad9102425a1dd67512d7e50692e1d1e9b114dcacb5cebc44335e5e2a60f7bf57",
+      "verification": {
+        "etherscan": {
+          "status": "verified",
+          "url": "https://etherscan.io/address/0xfbd94e2d6942d5b4ed0c5c9c43bded77a8f20215#code"
+        },
+        "sourcify": {
+          "creation_match": "exact_match",
+          "runtime_match": "match",
+          "url": "https://repo.sourcify.dev/1/0xFbd94e2D6942D5b4Ed0C5C9C43bded77a8f20215"
+        }
+      }
+    }
+  }
+}

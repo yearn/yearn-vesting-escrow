@@ -2,7 +2,12 @@
 
 `VestingEscrowSimple` vests a fixed amount of one ERC-20 token for one
 recipient. This page describes its complete external surface, roles, schedule,
-authorization, and events for the unreleased 0.4.0 release.
+authorization, and events for the deployed 0.4.0 contracts.
+
+The Ethereum mainnet implementation is
+[`0x4CaE5c8d3fAe0f1e7F005975cbFc0dF1D4C32388`](https://etherscan.io/address/0x4cae5c8d3fae0f1e7f005975cbfc0df1d4c32388#code).
+Applications should create minimal proxies through the
+[0.4.0 factory](factory.md).
 
 All amounts are raw units of `token`. All transfer destinations must be
 nonzero.
