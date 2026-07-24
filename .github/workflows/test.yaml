@@ -2,6 +2,8 @@ name: Test
 
 on:
   push:
+    branches:
+      - master
   pull_request:
 
 permissions:
@@ -28,7 +30,7 @@ jobs:
         run: uv sync --locked
 
       - name: Compile contracts
-        run: uv run --locked vesting-escrow-compile
+        run: uv run --locked vesting-escrow-compile | grep '^compiled ' | tee checkout-compile.txt
 
       - name: Run functional tests
         run: uv run --locked pytest tests/functional/ --gas-profile
@@ -41,5 +43,6 @@ jobs:
 
       - name: Smoke test installed wheel
         run: |
-          uvx --from ./dist/yearn_vesting_escrow-0.4.0-py3-none-any.whl vesting-escrow-compile
+          uvx --from ./dist/yearn_vesting_escrow-0.4.0-py3-none-any.whl vesting-escrow-compile | grep '^compiled ' | tee wheel-compile.txt
+          diff -u checkout-compile.txt wheel-compile.txt
           uvx --from ./dist/yearn_vesting_escrow-0.4.0-py3-none-any.whl vesting-escrow-deploy
