@@ -1,9 +1,8 @@
 # Development and deployment
 
-Version 0.4.0 is deployed and source-verified on Ethereum mainnet from frozen
-contract sources. Its release tag is pending post-deployment validation, and it
-has not received an independent audit. This guide records the deployment and
-the remaining rollout gates.
+Version 0.4.0 is released, deployed, and source-verified on Ethereum mainnet
+from frozen contract sources. It has not received an independent audit. This
+guide records the deployment and production-readiness checklist.
 
 ## Ethereum mainnet deployment
 

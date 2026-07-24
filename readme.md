@@ -3,10 +3,9 @@
 Vesting escrows for standard ERC-20 tokens and ERC-4626 vault shares.
 
 > [!IMPORTANT]
-> Version 0.4.0 is deployed on Ethereum mainnet from
+> Version 0.4.0 is released and deployed on Ethereum mainnet from
 > [frozen sources at `792c21b`](https://github.com/yearn/yearn-vesting-escrow/commit/792c21b230244943bee043505e6510d92737e01a).
-> The release tag is pending post-deployment validation, and this version has
-> not received an independent audit.
+> This version has not received an independent audit.
 
 ## Contracts
 
@@ -113,7 +112,7 @@ operate deployed escrows.
 Every factory and escrow listed here is immutable. Integrators must select the
 ABI matching each deployed version and factory address.
 
-### [v0.4.0](https://github.com/yearn/yearn-vesting-escrow/commit/792c21b230244943bee043505e6510d92737e01a) (release tag pending)
+### [v0.4.0](https://github.com/yearn/yearn-vesting-escrow/tree/v0.4.0)
 
 The 0.4.0 contract sources are frozen at commit
 [`792c21b`](https://github.com/yearn/yearn-vesting-escrow/commit/792c21b230244943bee043505e6510d92737e01a).

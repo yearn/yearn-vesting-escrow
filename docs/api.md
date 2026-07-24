@@ -13,6 +13,6 @@ amount units, lifecycle behavior, and events for that contract. The
 [ERC-4626 accounting guide](erc4626.md) separately derives the principal/yield,
 gain/loss, and rounding model.
 
-Version 0.4.0 is deployed and source-verified but has not received an
-independent audit. Its release tag remains pending. Historical v0.x and
-LlamaPay deployments use different ABIs.
+Version 0.4.0 is released, deployed, and source-verified but has not received
+an independent audit. Historical v0.x and LlamaPay deployments use different
+ABIs.
