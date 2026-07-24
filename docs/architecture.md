@@ -37,7 +37,7 @@ The role model separates persistent authority from transfer destinations:
 
 The factory allows the zero address as `revoker`, which creates an irrevocable
 escrow from the outset. A nonzero revoker can permanently remove its own
-authority with `renounce_revocation()`.
+authority with `renounce_revocation()`, but cannot be the escrow proxy itself.
 
 The `recipient` and `revoker` must be different. The funder, revoker, and
 ERC-4626 yield recipient may otherwise be the same address if that is the

@@ -4,6 +4,8 @@ import pytest
 
 from tests.helpers import ZERO_ADDRESS, at, deploy, events
 
+UINT256_MAX = 2**256 - 1
+
 
 def first_create_address(sender):
     sender_bytes = bytes.fromhex(str(sender).removeprefix("0x"))
@@ -346,6 +348,230 @@ def test_erc4626_funding_requotes_at_execution(
             )
 
 
+def test_rational_vault_conversion_and_rounding(
+    chain,
+    vesting_factory,
+    owner,
+    recipient,
+    asset_token,
+):
+    principal_assets = 101
+    vault = deploy("test/RationalERC4626", asset_token, 3, 7, sender=owner)
+    funded_shares = 236
+    assert vault.convertToShares(principal_assets) == 235
+    assert vault.convertToAssets(235) < principal_assets
+    assert vault.convertToAssets(funded_shares) == principal_assets
+    assert (
+        vesting_factory.preview_erc4626_funding(vault, principal_assets)
+        == funded_shares
+    )
+
+    vault.mint(owner, funded_shares, sender=owner)
+    vault.approve(vesting_factory, funded_shares, sender=owner)
+    start = chain.pending_timestamp + 10
+    escrow_address = deploy_erc4626(
+        vesting_factory,
+        vault,
+        owner,
+        recipient,
+        owner,
+        owner,
+        principal_assets,
+        100,
+        start,
+        max_funded_shares=funded_shares,
+    )
+    escrow = at("VestingEscrow4626", escrow_address)
+
+    vault.set_ratio(5, 11, sender=owner)
+    chain.pending_timestamp = start + 100
+    principal_shares = 223
+    yield_shares = funded_shares - principal_shares
+    assert vault.convertToAssets(principal_shares - 1) < principal_assets
+    assert vault.convertToAssets(principal_shares) >= principal_assets
+
+    assert (
+        escrow.claim_principal(recipient, UINT256_MAX, sender=recipient)
+        == principal_shares
+    )
+    assert escrow.claim_yield(sender=owner) == yield_shares
+    assert vault.balanceOf(recipient) == principal_shares
+    assert vault.balanceOf(owner) == yield_shares
+    assert vault.balanceOf(escrow) == 0
+
+
+def test_initially_closed_claims_and_recipient_as_yield_recipient(
+    chain,
+    vesting_factory,
+    owner,
+    recipient,
+    token,
+    vault,
+    amount,
+):
+    start = chain.pending_timestamp + 10
+    duration = 100
+
+    token.mint(owner, amount, sender=owner)
+    token.approve(vesting_factory, amount, sender=owner)
+    standard_address = deploy_standard(
+        vesting_factory,
+        token,
+        owner,
+        recipient,
+        owner,
+        amount,
+        duration,
+        start,
+        permissionless_claims=False,
+    )
+    standard = at("VestingEscrowSimple", standard_address)
+
+    vault.mint(owner, amount, sender=owner)
+    vault.approve(vesting_factory, amount, sender=owner)
+    erc4626_address = deploy_erc4626(
+        vesting_factory,
+        vault,
+        owner,
+        recipient,
+        owner,
+        recipient,
+        amount,
+        duration,
+        start,
+        permissionless_claims=False,
+    )
+    erc4626 = at("VestingEscrow4626", erc4626_address)
+    chain.pending_timestamp = start + duration
+
+    with boa.reverts():
+        standard.claim(recipient, UINT256_MAX, sender=owner)
+    with boa.reverts():
+        erc4626.claim_principal(recipient, UINT256_MAX, sender=owner)
+
+    assert standard.claim(recipient, UINT256_MAX, sender=recipient) == amount
+    vault.set_assets_per_share(125 * 10**16, sender=owner)
+    yield_shares = erc4626.claim_yield(sender=owner)
+    principal_shares = erc4626.claim_principal(
+        recipient,
+        UINT256_MAX,
+        sender=recipient,
+    )
+    assert not standard.permissionless_claims()
+    assert not erc4626.permissionless_claims()
+    assert yield_shares > 0
+    assert vault.balanceOf(recipient) == principal_shares + yield_shares
+
+
+def test_proxy_cannot_be_its_own_revoker(
+    standard_target,
+    erc4626_target,
+    owner,
+    recipient,
+    token,
+    vault,
+    amount,
+):
+    standard_factory = deploy(
+        "VestingEscrowFactory",
+        standard_target,
+        erc4626_target,
+        sender=owner,
+    )
+    standard_proxy = first_create_address(standard_factory.address)
+    token.mint(owner, amount, sender=owner)
+    token.approve(standard_factory, amount, sender=owner)
+    with boa.reverts():
+        deploy_standard(
+            standard_factory,
+            token,
+            owner,
+            recipient,
+            standard_proxy,
+            amount,
+            100,
+            boa.env.evm.patch.timestamp + 10,
+        )
+    assert token.balanceOf(owner) == amount
+
+    erc4626_factory = deploy(
+        "VestingEscrowFactory",
+        standard_target,
+        erc4626_target,
+        sender=owner,
+    )
+    erc4626_proxy = first_create_address(erc4626_factory.address)
+    vault.mint(owner, amount, sender=owner)
+    vault.approve(erc4626_factory, amount, sender=owner)
+    with boa.reverts():
+        deploy_erc4626(
+            erc4626_factory,
+            vault,
+            owner,
+            recipient,
+            erc4626_proxy,
+            owner,
+            amount,
+            100,
+            boa.env.evm.patch.timestamp + 10,
+        )
+    assert vault.balanceOf(owner) == amount
+
+
+def test_standard_rejects_excessive_amount_before_funding(
+    vesting_factory,
+    owner,
+    recipient,
+    token,
+    duration,
+    start_time,
+):
+    excessive = 2**128
+    token.mint(owner, excessive, sender=owner)
+    token.approve(vesting_factory, excessive, sender=owner)
+
+    with boa.reverts(dev="amount too large"):
+        deploy_standard(
+            vesting_factory,
+            token,
+            owner,
+            recipient,
+            owner,
+            excessive,
+            duration,
+            start_time,
+        )
+
+    assert token.balanceOf(owner) == excessive
+    assert token.allowance(owner, vesting_factory) == excessive
+
+
+def test_schedule_end_overflow_reverts_before_funding(
+    vesting_factory,
+    owner,
+    recipient,
+    token,
+    amount,
+):
+    token.mint(owner, amount, sender=owner)
+    token.approve(vesting_factory, amount, sender=owner)
+
+    with boa.reverts():
+        deploy_standard(
+            vesting_factory,
+            token,
+            owner,
+            recipient,
+            owner,
+            amount,
+            100,
+            UINT256_MAX - 50,
+        )
+
+    assert token.balanceOf(owner) == amount
+    assert token.allowance(owner, vesting_factory) == amount
+
+
 def test_zero_revoker_is_allowed_for_irrevocable_escrows(
     vesting_factory,
     owner,
@@ -385,6 +611,135 @@ def test_zero_revoker_is_allowed_for_irrevocable_escrows(
 
     assert at("VestingEscrowSimple", standard).revoker() == ZERO_ADDRESS
     assert at("VestingEscrow4626", erc4626).revoker() == ZERO_ADDRESS
+
+
+def test_rejects_invalid_principal_recipients_atomically(
+    chain,
+    standard_target,
+    erc4626_target,
+    owner,
+    token,
+    vault,
+    amount,
+):
+    start = chain.pending_timestamp + 10
+    duration = 100
+    standard_factory = deploy(
+        "VestingEscrowFactory",
+        standard_target,
+        erc4626_target,
+        sender=owner,
+    )
+    standard_proxy = first_create_address(standard_factory.address)
+    token.mint(owner, amount, sender=owner)
+    token.approve(standard_factory, amount, sender=owner)
+
+    for invalid_recipient in (
+        ZERO_ADDRESS,
+        standard_factory.address,
+        standard_proxy,
+        token.address,
+        owner,
+    ):
+        with boa.env.anchor():
+            with boa.reverts():
+                deploy_standard(
+                    standard_factory,
+                    token,
+                    owner,
+                    invalid_recipient,
+                    owner,
+                    amount,
+                    duration,
+                    start,
+                )
+            assert token.balanceOf(owner) == amount
+            assert token.balanceOf(standard_proxy) == 0
+
+    erc4626_factory = deploy(
+        "VestingEscrowFactory",
+        standard_target,
+        erc4626_target,
+        sender=owner,
+    )
+    erc4626_proxy = first_create_address(erc4626_factory.address)
+    vault.mint(owner, amount, sender=owner)
+    vault.approve(erc4626_factory, amount, sender=owner)
+
+    for invalid_recipient in (
+        ZERO_ADDRESS,
+        erc4626_factory.address,
+        erc4626_proxy,
+        vault.address,
+        owner,
+    ):
+        with boa.env.anchor():
+            with boa.reverts():
+                deploy_erc4626(
+                    erc4626_factory,
+                    vault,
+                    owner,
+                    invalid_recipient,
+                    owner,
+                    owner,
+                    amount,
+                    duration,
+                    start,
+                )
+            assert vault.balanceOf(owner) == amount
+            assert vault.balanceOf(erc4626_proxy) == 0
+
+
+def test_cliff_equal_to_duration_unlocks_only_at_end(
+    chain,
+    vesting_factory,
+    owner,
+    recipient,
+    token,
+    vault,
+    amount,
+):
+    start = chain.pending_timestamp + 10
+    duration = 100
+
+    token.mint(owner, amount, sender=owner)
+    token.approve(vesting_factory, amount, sender=owner)
+    standard_address = deploy_standard(
+        vesting_factory,
+        token,
+        owner,
+        recipient,
+        owner,
+        amount,
+        duration,
+        start,
+        cliff=duration,
+    )
+    standard = at("VestingEscrowSimple", standard_address)
+
+    vault.mint(owner, amount, sender=owner)
+    vault.approve(vesting_factory, amount, sender=owner)
+    erc4626_address = deploy_erc4626(
+        vesting_factory,
+        vault,
+        owner,
+        recipient,
+        owner,
+        owner,
+        amount,
+        duration,
+        start,
+        cliff=duration,
+    )
+    erc4626 = at("VestingEscrow4626", erc4626_address)
+
+    chain.pending_timestamp = start + duration - 1
+    assert standard.claimable() == 0
+    assert erc4626.claimable_principal_assets() == 0
+
+    chain.pending_timestamp = start + duration
+    assert standard.claimable() == amount
+    assert erc4626.claimable_principal_assets() == amount
 
 
 def test_erc4626_rejects_invalid_yield_recipients(

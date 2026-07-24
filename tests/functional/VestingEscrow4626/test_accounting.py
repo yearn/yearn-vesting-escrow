@@ -1,4 +1,5 @@
 import boa
+import pytest
 
 from tests.helpers import ZERO_ADDRESS, at, deploy, events
 
@@ -113,6 +114,32 @@ def test_positive_zero_share_claim_does_not_consume_principal(
     assert yield_vesting.claim_principal(recipient, 2, sender=owner) == 1
     assert yield_vesting.claimed_principal_assets() == 2
     assert vault.balanceOf(recipient) == 1
+
+
+def test_exact_schedule_boundaries(
+    chain,
+    yield_vesting,
+    amount,
+    start_time,
+    end_time,
+    cliff_duration,
+):
+    duration = end_time - start_time
+    cases = (
+        (start_time - 1, 0),
+        (start_time, 0),
+        (start_time + cliff_duration - 1, 0),
+        (
+            start_time + cliff_duration,
+            amount * cliff_duration // duration,
+        ),
+        (end_time - 1, amount * (duration - 1) // duration),
+        (end_time, amount),
+    )
+
+    for timestamp, expected in cases:
+        chain.pending_timestamp = timestamp
+        assert yield_vesting.claimable_principal_assets() == expected
 
 
 def test_principal_claim_rejects_escrow_receiver(
@@ -438,6 +465,18 @@ def test_revoke_rejects_escrow_receiver(
     assert yield_vesting.revoker() == owner
 
 
+def test_cannot_revoke_at_completion(
+    chain,
+    yield_vesting,
+    owner,
+    end_time,
+):
+    chain.pending_timestamp = end_time
+
+    with boa.reverts():
+        yield_vesting.revoke(owner, sender=owner)
+
+
 def test_renouncing_revocation_does_not_change_yield_recipient(
     yield_vesting,
     owner,
@@ -469,6 +508,138 @@ def test_share_transfer_cannot_reenter_accounting(
     yield_vesting.claim_yield(sender=recipient)
 
     assert not vault.reentry_succeeded()
+
+
+@pytest.mark.parametrize("transfer_mode", [1, 2])
+def test_principal_transfer_failure_rolls_back(
+    chain,
+    yield_vesting,
+    owner,
+    recipient,
+    vault,
+    amount,
+    start_time,
+    end_time,
+    transfer_mode,
+):
+    chain.pending_timestamp = start_time + (end_time - start_time) // 2
+    claimable = yield_vesting.claimable_principal_assets()
+    token_balance = vault.balanceOf(yield_vesting)
+    vault.set_transfer_mode(transfer_mode, sender=owner)
+
+    with boa.reverts():
+        yield_vesting.claim_principal(recipient, UINT256_MAX, sender=recipient)
+
+    assert yield_vesting.claimed_principal_assets() == 0
+    assert yield_vesting.claimable_principal_assets() == claimable
+    assert vault.balanceOf(yield_vesting) == token_balance == amount
+    assert vault.balanceOf(recipient) == 0
+
+
+@pytest.mark.parametrize("transfer_mode", [1, 2])
+def test_yield_transfer_failure_leaves_shares_claimable(
+    yield_vesting,
+    owner,
+    recipient,
+    vault,
+    amount,
+    transfer_mode,
+):
+    vault.set_assets_per_share(125 * SCALE // 100, sender=owner)
+    yield_shares = yield_vesting.claimable_yield_shares()
+    vault.set_transfer_mode(transfer_mode, sender=owner)
+
+    with boa.reverts():
+        yield_vesting.claim_yield(sender=recipient)
+
+    assert yield_vesting.claimable_yield_shares() == yield_shares
+    assert vault.balanceOf(yield_vesting) == amount
+    assert vault.balanceOf(owner) == 0
+
+
+@pytest.mark.parametrize("transfer_mode", [1, 2])
+def test_revoke_transfer_failure_rolls_back(
+    chain,
+    yield_vesting,
+    owner,
+    vault,
+    amount,
+    start_time,
+    end_time,
+    transfer_mode,
+):
+    chain.pending_timestamp = start_time + (end_time - start_time) // 2
+    vault.set_transfer_mode(transfer_mode, sender=owner)
+
+    with boa.reverts():
+        yield_vesting.revoke(owner, sender=owner)
+
+    assert yield_vesting.disabled_at() == 0
+    assert yield_vesting.revoker() == owner
+    assert vault.balanceOf(yield_vesting) == amount
+    assert vault.balanceOf(owner) == 0
+
+
+def test_subshare_revocation_rounds_toward_recipient(
+    chain,
+    standard_target,
+    erc4626_target,
+    owner,
+    recipient,
+    asset_token,
+):
+    vault = deploy("test/MockERC4626", asset_token, sender=owner)
+    factory = deploy(
+        "VestingEscrowFactory",
+        standard_target,
+        erc4626_target,
+        sender=owner,
+    )
+    vault.set_assets_per_share(2 * SCALE, sender=owner)
+    vault.mint(owner, 1, sender=owner)
+    vault.approve(factory, 1, sender=owner)
+    start = chain.pending_timestamp + 1
+    escrow_address = factory.deploy_erc4626_vesting(
+        vault,
+        recipient,
+        2,
+        1,
+        2,
+        start,
+        0,
+        True,
+        owner,
+        owner,
+        sender=owner,
+    )
+    escrow = at("VestingEscrow4626", escrow_address)
+    chain.pending_timestamp = start + 1
+
+    escrow.revoke(owner, sender=owner)
+    event = events(escrow, "Revoked")[0]
+    assert event.unvested_principal_assets == 1
+    assert event.shares == 0
+    assert vault.balanceOf(owner) == 0
+    assert vault.balanceOf(escrow) == 1
+
+    assert escrow.claim_principal(recipient, UINT256_MAX, sender=recipient) == 1
+    assert vault.balanceOf(recipient) == 1
+    assert vault.balanceOf(escrow) == 0
+
+
+def test_revoke_before_start_returns_all_principal(
+    yield_vesting,
+    owner,
+    recipient,
+    vault,
+    amount,
+):
+    yield_vesting.revoke(owner, sender=owner)
+
+    assert yield_vesting.claimable_principal_assets() == 0
+    assert yield_vesting.claim_principal(recipient, UINT256_MAX, sender=recipient) == 0
+    assert vault.balanceOf(owner) == amount
+    assert vault.balanceOf(yield_vesting) == 0
 
 
 def test_unrelated_tokens_remain_unsupported(

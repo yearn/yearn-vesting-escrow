@@ -1,5 +1,5 @@
 import boa
-from hypothesis import given, settings, strategies as st
+from hypothesis import example, given, settings, strategies as st
 
 from tests.helpers import at, deploy
 
@@ -190,6 +190,12 @@ def test_lifecycle_conserves_every_share_and_explicit_yield_claim_drains(princip
 
 
 @settings(deadline=None, max_examples=50)
+@example(
+    principal=10**6,
+    initial_rate=4 * SCALE,
+    actions=[(1, 0, 0, 100, False)],
+    revoke_bps=1,
+)
 @given(
     principal=st.integers(min_value=10**6, max_value=10**24),
     initial_rate=st.integers(min_value=SCALE // 10, max_value=4 * SCALE),
@@ -284,13 +290,17 @@ def test_deployed_erc4626_lifecycle_matches_model(
                 remaining_assets - claim_assets,
             )
 
-            assert (
-                escrow.claim_principal(recipient, claim_assets, sender=recipient)
-                == expected_claim_shares
-            )
-            balance -= expected_claim_shares
-            claimed_assets += claim_assets
-            recipient_shares += expected_claim_shares
+            if claim_assets > 0 and expected_claim_shares == 0:
+                with boa.reverts():
+                    escrow.claim_principal(recipient, claim_assets, sender=recipient)
+            else:
+                assert (
+                    escrow.claim_principal(recipient, claim_assets, sender=recipient)
+                    == expected_claim_shares
+                )
+                balance -= expected_claim_shares
+                claimed_assets += claim_assets
+                recipient_shares += expected_claim_shares
 
             if take_yield:
                 remaining_assets = principal - claimed_assets

@@ -16,7 +16,8 @@ nonzero.
 | third-party caller | May claim only when permissionless claims are enabled and only to the stored recipient. |
 | `receiver` | Receives one claim or revocation transfer and gains no persistent authority. It cannot be zero or the escrow itself. |
 
-A zero `revoker` makes the escrow irrevocable from initialization.
+A zero `revoker` makes the escrow irrevocable from initialization. A nonzero
+revoker cannot be the escrow proxy itself.
 
 ## Initialization
 
@@ -44,6 +45,7 @@ Initialization requires:
 
 - `0 < amount <= 2**128 - 1`;
 - a recipient distinct from zero, the proxy, token, and revoker;
+- a revoker distinct from the proxy, or zero for an irrevocable escrow;
 - `end_time` later than both the current block and `start_time`;
 - a duration no greater than `2**64 - 1`;
 - `cliff_length` no greater than the duration;

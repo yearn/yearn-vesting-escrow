@@ -84,6 +84,7 @@ def initialize(
 
     assert principal_assets > 0  # dev: principal must be > 0
     assert principal_assets <= MAX_PRINCIPAL  # dev: principal too large
+    assert revoker != self  # dev: invalid revoker
     assert recipient not in [empty(address), self, vault.address, revoker]  # dev: invalid recipient
     assert end_time > block.timestamp and end_time > start_time  # dev: invalid vesting period
     duration: uint256 = end_time - start_time

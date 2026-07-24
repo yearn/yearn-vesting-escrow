@@ -27,10 +27,15 @@ totalSupply: public(uint256)
 watched_escrow: public(address)
 observed_revoker: public(address)
 extra_debit: public(uint256)
+transfer_mode: public(uint256)
 
 
 @external
 def transfer(receiver: address, amount: uint256) -> bool:
+    if self.transfer_mode == 1:
+        return False
+    assert self.transfer_mode != 2
+
     if msg.sender == self.watched_escrow:
         self.observed_revoker = staticcall VestingEscrow(msg.sender).revoker()
 
@@ -70,3 +75,9 @@ def mint(receiver: address, amount: uint256):
 def configure(watched_escrow: address, extra_debit: uint256):
     self.watched_escrow = watched_escrow
     self.extra_debit = extra_debit
+
+
+@external
+def set_transfer_mode(transfer_mode: uint256):
+    assert transfer_mode <= 2
+    self.transfer_mode = transfer_mode

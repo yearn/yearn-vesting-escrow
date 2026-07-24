@@ -70,6 +70,7 @@ def initialize(
 
     assert amount > 0  # dev: amount must be > 0
     assert amount <= MAX_AMOUNT  # dev: amount too large
+    assert revoker != self  # dev: invalid revoker
     assert recipient not in [empty(address), self, token.address, revoker]  # dev: invalid recipient
     assert end_time > block.timestamp and end_time > start_time  # dev: invalid vesting period
     duration: uint256 = end_time - start_time

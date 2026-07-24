@@ -69,7 +69,7 @@ The returned address is the new escrow.
 | `vesting_start` | Unix timestamp at which linear vesting starts. May be in the past if the end remains in the future. |
 | `cliff_length` | Seconds after `vesting_start` before accumulated vesting becomes claimable. Cannot exceed the duration. |
 | `permissionless_claims` | Whether third parties may trigger claims to `recipient`. |
-| `revoker` | Revocation authority, or zero for an irrevocable escrow. |
+| `revoker` | Revocation authority, or zero for an irrevocable escrow. It cannot be the new proxy. |
 
 See the [standard escrow API](standard.md) for the deployed contract's
 lifecycle and authorization rules.
@@ -139,7 +139,7 @@ escrow.
 | `vesting_start` | Unix timestamp at which linear principal vesting starts. |
 | `cliff_length` | Seconds after `vesting_start` before accumulated principal becomes claimable. |
 | `permissionless_claims` | Whether third parties may trigger principal claims to `recipient`. |
-| `revoker` | Revocation authority, or zero for an irrevocable escrow. |
+| `revoker` | Revocation authority, or zero for an irrevocable escrow. It cannot be the new proxy. |
 | `yield_recipient` | Fixed destination for yield shares. Must differ from zero, the proxy, vault, and underlying asset. |
 
 See the [ERC-4626 escrow API](erc4626.md) for the deployed contract's

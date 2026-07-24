@@ -165,6 +165,7 @@ def deploy_vesting_contract(
     revoker: address,
 ) -> address:
     """Deploy a standard ERC-20 vesting escrow."""
+    assert amount <= MAX_PRINCIPAL  # dev: amount too large
     self._validate(token, recipient, amount, vesting_duration, vesting_start, cliff_length, revoker)
 
     escrow: address = create_minimal_proxy_to(STANDARD_TARGET)

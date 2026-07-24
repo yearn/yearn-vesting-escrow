@@ -1,8 +1,42 @@
 import boa
+import pytest
 
 from tests.helpers import ZERO_ADDRESS, at, deploy
 
 UINT256_MAX = 2**256 - 1
+
+
+def deploy_adversarial_vesting(
+    chain,
+    standard_target,
+    erc4626_target,
+    owner,
+    recipient,
+    amount,
+):
+    token = deploy("test/AdversarialToken", sender=owner)
+    factory = deploy(
+        "VestingEscrowFactory",
+        standard_target,
+        erc4626_target,
+        sender=owner,
+    )
+    start = chain.pending_timestamp + 10
+    duration = 100
+    token.mint(owner, amount, sender=owner)
+    token.approve(factory, amount, sender=owner)
+    escrow_address = factory.deploy_vesting_contract(
+        token,
+        recipient,
+        amount,
+        duration,
+        start,
+        0,
+        True,
+        owner,
+        sender=owner,
+    )
+    return token, at("VestingEscrowSimple", escrow_address), start, duration
 
 
 def test_claims_standard_tokens(
@@ -62,6 +96,33 @@ def test_cliff_blocks_claims(
     assert vesting.claimable() == 0
     assert vesting.locked() == amount
     assert vesting.claim(recipient, UINT256_MAX, sender=recipient) == 0
+
+
+def test_exact_schedule_boundaries(
+    chain,
+    vesting,
+    amount,
+    start_time,
+    end_time,
+    cliff_duration,
+):
+    duration = end_time - start_time
+    cases = (
+        (start_time - 1, 0),
+        (start_time, 0),
+        (start_time + cliff_duration - 1, 0),
+        (
+            start_time + cliff_duration,
+            amount * cliff_duration // duration,
+        ),
+        (end_time - 1, amount * (duration - 1) // duration),
+        (end_time, amount),
+    )
+
+    for timestamp, expected in cases:
+        chain.pending_timestamp = timestamp
+        assert vesting.claimable() == expected
+        assert vesting.locked() == amount - expected
 
 
 def test_permissionless_claim_for_recipient(
@@ -176,6 +237,21 @@ def test_revoke_accepts_custom_receiver(
     assert token.balanceOf(recipient) == vested
 
 
+def test_revoke_before_start_returns_all_principal(
+    vesting,
+    owner,
+    recipient,
+    token,
+    amount,
+):
+    vesting.revoke(owner, sender=owner)
+
+    assert vesting.claimable() == 0
+    assert vesting.claim(recipient, UINT256_MAX, sender=recipient) == 0
+    assert token.balanceOf(owner) == amount
+    assert token.balanceOf(vesting) == 0
+
+
 def test_revoke_rejects_escrow_receiver(
     chain,
     vesting,
@@ -239,6 +315,107 @@ def test_revoke_clears_revoker_before_transfer(
     escrow.revoke(owner, sender=owner)
 
     assert token.observed_revoker() == ZERO_ADDRESS
+
+
+@pytest.mark.parametrize("transfer_mode", [1, 2])
+def test_claim_transfer_failure_rolls_back(
+    chain,
+    standard_target,
+    erc4626_target,
+    owner,
+    recipient,
+    amount,
+    transfer_mode,
+):
+    token, escrow, start, duration = deploy_adversarial_vesting(
+        chain,
+        standard_target,
+        erc4626_target,
+        owner,
+        recipient,
+        amount,
+    )
+    chain.pending_timestamp = start + duration // 2
+    expected_claim = amount // 2
+    token.set_transfer_mode(transfer_mode, sender=owner)
+
+    with boa.reverts():
+        escrow.claim(recipient, UINT256_MAX, sender=recipient)
+
+    assert escrow.total_claimed() == 0
+    assert escrow.claimable() == expected_claim
+    assert token.balanceOf(escrow) == amount
+    assert token.balanceOf(recipient) == 0
+
+
+@pytest.mark.parametrize("transfer_mode", [1, 2])
+def test_revoke_transfer_failure_rolls_back(
+    chain,
+    standard_target,
+    erc4626_target,
+    owner,
+    recipient,
+    amount,
+    transfer_mode,
+):
+    token, escrow, start, duration = deploy_adversarial_vesting(
+        chain,
+        standard_target,
+        erc4626_target,
+        owner,
+        recipient,
+        amount,
+    )
+    chain.pending_timestamp = start + duration // 2
+    token.set_transfer_mode(transfer_mode, sender=owner)
+
+    with boa.reverts():
+        escrow.revoke(owner, sender=owner)
+
+    assert escrow.disabled_at() == 0
+    assert escrow.revoker() == owner
+    assert token.balanceOf(escrow) == amount
+    assert token.balanceOf(owner) == 0
+
+
+def test_no_return_token_funds_revokes_and_claims(
+    chain,
+    standard_target,
+    erc4626_target,
+    owner,
+    recipient,
+    amount,
+):
+    token = deploy("test/NoReturnToken", sender=owner)
+    factory = deploy(
+        "VestingEscrowFactory",
+        standard_target,
+        erc4626_target,
+        sender=owner,
+    )
+    start = chain.pending_timestamp + 10
+    duration = 100
+    token.mint(owner, amount, sender=owner)
+    token.approve(factory, amount, sender=owner)
+    escrow_address = factory.deploy_vesting_contract(
+        token,
+        recipient,
+        amount,
+        duration,
+        start,
+        0,
+        True,
+        owner,
+        sender=owner,
+    )
+    escrow = at("VestingEscrowSimple", escrow_address)
+    chain.pending_timestamp = start + duration // 2
+
+    escrow.revoke(owner, sender=owner)
+    assert escrow.claim(recipient, UINT256_MAX, sender=recipient) == amount // 2
+    assert token.balanceOf(owner) == amount // 2
+    assert token.balanceOf(recipient) == amount // 2
+    assert token.balanceOf(escrow) == 0
 
 
 def test_renounce_revocation_is_final(vesting, owner):

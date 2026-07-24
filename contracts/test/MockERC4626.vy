@@ -28,6 +28,7 @@ SCALE: constant(uint256) = 10**18
 asset: public(address)
 assets_per_share: public(uint256)
 transfer_fee_bps: public(uint256)
+transfer_mode: public(uint256)
 reentry_target: public(address)
 reentry_succeeded: public(bool)
 balanceOf: public(HashMap[address, uint256])
@@ -70,6 +71,12 @@ def set_transfer_fee_bps(transfer_fee_bps: uint256):
 
 
 @external
+def set_transfer_mode(transfer_mode: uint256):
+    assert transfer_mode <= 2
+    self.transfer_mode = transfer_mode
+
+
+@external
 def set_reentry_target(reentry_target: address):
     self.reentry_target = reentry_target
     self.reentry_succeeded = False
@@ -99,6 +106,10 @@ def _transfer(owner: address, receiver: address, amount: uint256):
 
 @external
 def transfer(receiver: address, amount: uint256) -> bool:
+    if self.transfer_mode == 1:
+        return False
+    assert self.transfer_mode != 2
+
     self._transfer(msg.sender, receiver, amount)
     return True
 
