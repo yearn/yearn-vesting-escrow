@@ -148,12 +148,45 @@ def test_factory_exposes_two_explicit_deployment_paths():
         ): (("address",), "nonpayable"),
         (
             "deploy_erc4626_vesting",
-            ("address", "address", "uint256", "uint256", "uint256", "uint256", "bool", "address", "address"),
+            (
+                "address",
+                "address",
+                "uint256",
+                "uint256",
+                "uint256",
+                "uint256",
+                "uint256",
+                "bool",
+                "address",
+                "address",
+            ),
         ): (("address",), "nonpayable"),
+        ("preview_erc4626_funding", ("address", "uint256")): (
+            ("uint256",),
+            "view",
+        ),
         ("STANDARD_TARGET", ()): (("address",), "view"),
         ("ERC4626_TARGET", ()): (("address",), "view"),
     }
     assert actual == expected
+
+    deploy_erc4626 = next(
+        item
+        for item in abi
+        if item.get("name") == "deploy_erc4626_vesting"
+    )
+    assert [arg["name"] for arg in deploy_erc4626["inputs"]] == [
+        "vault",
+        "recipient",
+        "principal_assets",
+        "max_funded_shares",
+        "vesting_duration",
+        "vesting_start",
+        "cliff_length",
+        "permissionless_claims",
+        "revoker",
+        "yield_recipient",
+    ]
 
     assert events(abi) == {
         (

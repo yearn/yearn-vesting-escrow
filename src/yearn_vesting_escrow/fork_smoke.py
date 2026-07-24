@@ -21,6 +21,8 @@ def asset() -> address: ...
 def balanceOf(account: address) -> uint256: ...
 @view
 def convertToAssets(shares: uint256) -> uint256: ...
+@view
+def convertToShares(assets: uint256) -> uint256: ...
 @nonpayable
 def approve(spender: address, amount: uint256) -> bool: ...
 """
@@ -46,14 +48,21 @@ def main():
 
     vault_address = os.environ.get("ERC4626_VAULT", SUSDS)
     holder = os.environ.get("ERC4626_HOLDER", SUSDS_HOLDER)
-    amount = int(os.environ.get("ERC4626_AMOUNT", 10**18))
+    principal_assets = int(os.environ.get("ERC4626_PRINCIPAL_ASSETS", 10**18))
 
     deployer = boa.env.generate_address("fork-deployer")
     recipient = boa.env.generate_address("fork-recipient")
     vault = boa.loads_vyi(ERC4626_INTERFACE, name="ERC4626").at(vault_address)
     assert vault.asset() != ZERO_ADDRESS
-    assert vault.balanceOf(holder) >= amount
-    assert vault.convertToAssets(amount) > amount
+    funded_shares = vault.convertToShares(principal_assets)
+    if vault.convertToAssets(funded_shares) < principal_assets:
+        funded_shares += 1
+    max_funded_shares = int(
+        os.environ.get("ERC4626_MAX_FUNDED_SHARES", funded_shares)
+    )
+    assert 0 < funded_shares <= max_funded_shares
+    assert vault.balanceOf(holder) >= funded_shares
+    assert vault.convertToAssets(funded_shares) >= principal_assets
 
     standard_target = boa.load(CONTRACTS / "VestingEscrowSimple.vy", sender=deployer)
     erc4626_target = boa.load(CONTRACTS / "VestingEscrow4626.vy", sender=deployer)
@@ -66,11 +75,12 @@ def main():
 
     start_time = boa.env.evm.patch.timestamp + 60
     duration = 60 * DAY
-    vault.approve(factory, amount, sender=holder)
+    vault.approve(factory, max_funded_shares, sender=holder)
     escrow_address = factory.deploy_erc4626_vesting(
         vault,
         recipient,
-        amount,
+        principal_assets,
+        max_funded_shares,
         duration,
         start_time,
         0,
@@ -80,6 +90,7 @@ def main():
         sender=holder,
     )
     escrow = boa.load_partial(CONTRACTS / "VestingEscrow4626.vy").at(escrow_address)
+    assert escrow.principal_assets() == principal_assets
 
     boa.env.time_travel(seconds=30 * DAY)
     holder_balance = vault.balanceOf(holder)

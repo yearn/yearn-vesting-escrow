@@ -156,6 +156,7 @@ def yield_vesting(
         vault,
         recipient,
         amount,
+        amount,
         duration,
         start_time,
         cliff_duration,

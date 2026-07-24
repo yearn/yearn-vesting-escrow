@@ -29,18 +29,19 @@ interface IVestingEscrow4626:
         revoker: address,
         vault: address,
         recipient: address,
-        funded_shares: uint256,
+        principal_assets: uint256,
         start_time: uint256,
         end_time: uint256,
         cliff_length: uint256,
         permissionless_claims: bool,
         yield_recipient: address,
     ) -> bool: nonpayable
-    def principal_assets() -> uint256: view
 
 
 interface IERC4626:
     def asset() -> address: view
+    def convertToAssets(shares: uint256) -> uint256: view
+    def convertToShares(assets: uint256) -> uint256: view
 
 
 event TokenVestingEscrowCreated:
@@ -73,6 +74,7 @@ event ERC4626VestingEscrowCreated:
 
 
 MAX_DURATION: constant(uint256) = 2**64 - 1
+MAX_PRINCIPAL: constant(uint256) = 2**128 - 1
 
 STANDARD_TARGET: public(immutable(address))
 ERC4626_TARGET: public(immutable(address))
@@ -123,6 +125,33 @@ def _fund(
     assert balance_after >= balance_before and balance_after - balance_before == amount  # dev: incorrect funding
 
 
+@internal
+@view
+def _erc4626_funding_shares(
+    vault: IERC4626,
+    principal_assets: uint256,
+) -> uint256:
+    assert principal_assets > 0  # dev: principal must be > 0
+    assert principal_assets <= MAX_PRINCIPAL  # dev: principal too large
+
+    funded_shares: uint256 = staticcall vault.convertToShares(principal_assets)
+    assert funded_shares > 0  # dev: invalid conversion
+    if staticcall vault.convertToAssets(funded_shares) < principal_assets:
+        funded_shares += 1
+        assert staticcall vault.convertToAssets(funded_shares) >= principal_assets  # dev: invalid conversion
+    return funded_shares
+
+
+@external
+@view
+def preview_erc4626_funding(
+    vault: IERC4626,
+    principal_assets: uint256,
+) -> uint256:
+    """Quote the shares required to fully back an asset-denominated principal."""
+    return self._erc4626_funding_shares(vault, principal_assets)
+
+
 @external
 @nonreentrant
 def deploy_vesting_contract(
@@ -171,7 +200,8 @@ def deploy_vesting_contract(
 def deploy_erc4626_vesting(
     vault: IERC20,
     recipient: address,
-    funded_shares: uint256,
+    principal_assets: uint256,
+    max_funded_shares: uint256,
     vesting_duration: uint256,
     vesting_start: uint256,
     cliff_length: uint256,
@@ -183,13 +213,18 @@ def deploy_erc4626_vesting(
     self._validate(
         vault,
         recipient,
-        funded_shares,
+        principal_assets,
         vesting_duration,
         vesting_start,
         cliff_length,
         revoker,
     )
     assert yield_recipient != empty(address)  # dev: invalid yield recipient
+    funded_shares: uint256 = self._erc4626_funding_shares(
+        IERC4626(vault.address),
+        principal_assets,
+    )
+    assert funded_shares <= max_funded_shares  # dev: share limit exceeded
 
     escrow: address = create_minimal_proxy_to(ERC4626_TARGET)
     self._fund(vault, msg.sender, escrow, funded_shares)
@@ -197,7 +232,7 @@ def deploy_erc4626_vesting(
         revoker,
         vault.address,
         recipient,
-        funded_shares,
+        principal_assets,
         vesting_start,
         vesting_start + vesting_duration,
         cliff_length,
@@ -214,7 +249,7 @@ def deploy_erc4626_vesting(
         yield_recipient=yield_recipient,
         asset_token=staticcall IERC4626(vault.address).asset(),
         funded_shares=funded_shares,
-        principal_assets=staticcall IVestingEscrow4626(escrow).principal_assets(),
+        principal_assets=principal_assets,
         vesting_start=vesting_start,
         vesting_duration=vesting_duration,
         cliff_length=cliff_length,

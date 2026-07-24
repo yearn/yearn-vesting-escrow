@@ -230,6 +230,7 @@ def test_deployed_erc4626_lifecycle_matches_model(principal, actions, revoke_bps
             vault,
             recipient,
             principal,
+            principal,
             duration,
             start,
             0,
