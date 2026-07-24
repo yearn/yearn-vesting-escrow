@@ -2,80 +2,78 @@
 
 Vesting escrows for standard ERC-20 tokens and ERC-4626 vault shares.
 
-The unreleased 0.4.0 release has two dedicated implementations behind one
-factory:
+> [!IMPORTANT]
+> Version 0.4.0 is unreleased, unaudited, and not deployed. The contracts on
+> `master` have a new ABI and must not be confused with the immutable historical
+> deployments listed below.
 
-- `VestingEscrowSimple.vy` vests a fixed amount of an ordinary ERC-20 token;
-- `VestingEscrow4626.vy` vests principal denominated in the vault's underlying
-  asset while holding and paying ERC-4626 shares;
-- `VestingEscrowFactory.vy` deploys minimal proxies from separate immutable
-  standard-token and ERC-4626 targets.
+## Contracts
 
-The factory exposes `deploy_vesting_contract()` for standard tokens and
-`deploy_erc4626_vesting()` for vault shares. Each function has one full,
-explicit signature; defaults belong in deployment tooling rather than
-contract-generated overloads. Both implement the same linear vesting behavior,
-but their storage, arithmetic, external APIs, and accounting remain
-independent.
+Version 0.4.0 has two dedicated escrow implementations behind one factory:
 
-Both escrow types use the same role vocabulary:
+| Contract | Purpose |
+| --- | --- |
+| [`VestingEscrowSimple.vy`](contracts/VestingEscrowSimple.vy) | Vests a fixed amount of an ordinary ERC-20 token. |
+| [`VestingEscrow4626.vy`](contracts/VestingEscrow4626.vy) | Vests principal denominated in underlying assets while holding and paying ERC-4626 shares. |
+| [`VestingEscrowFactory.vy`](contracts/VestingEscrowFactory.vy) | Deploys funded minimal proxies from separate immutable implementation targets. |
 
-- `recipient` owns vested principal, may redirect its own claims, and controls
-  whether third parties may trigger claims to the recipient;
-- `revoker` may stop vesting and send unvested principal to an explicit
-  receiver, or permanently renounce that authority;
-- `receiver` is only a per-call transfer destination and has no persistent
-  authority;
-- `funder` supplies the initial tokens and has no implicit post-deployment
-  rights;
-- ERC-4626 escrows additionally assign all yield to a fixed
-  `yield_recipient`.
+The two escrows share a role model and linear schedule, but deliberately have
+separate storage, APIs, and accounting. The standard escrow never needs to know
+about shares or yield. The ERC-4626 escrow makes every asset/share boundary
+explicit.
 
-Permissionless claiming permits third-party execution, not third-party
-routing: a caller other than the recipient can only send a claim to the stored
-recipient.
+The factory exposes one full signature per deployment path:
 
-The lifecycle methods use explicit destinations and limits:
+```vyper
+deploy_vesting_contract(
+    token,
+    recipient,
+    amount,
+    vesting_duration,
+    vesting_start,
+    cliff_length,
+    permissionless_claims,
+    revoker,
+)
 
-- standard escrows expose `claim(receiver, max_amount)`;
-- ERC-4626 escrows expose
-  `claim_principal(receiver, max_principal_assets)`;
-- both expose `revoke(receiver)`, `renounce_revocation()`, and
-  `set_permissionless_claims(enabled)`.
-
-`disabled_at()` is zero while an escrow has not been revoked. Lifecycle views
-use `end_time()` as the effective stop until immediate revocation records its
-block timestamp.
-
-The ERC-4626 escrow records principal in underlying-asset units at
-initialization. Its API makes units explicit:
-
-- `claimable_principal_assets()` reports currently claimable principal assets;
-- `preview_principal_claim(max_principal_assets)` reports the principal assets
-  and vault shares an exact claim would transfer;
-- `claim_principal()` accepts a maximum principal amount in asset units and
-  pays the corresponding vault shares;
-- `claim_yield()` sends shares worth more than the remaining principal to a
-  fixed `yield_recipient`, which is independent from the revocation owner;
-- revocation returns unvested principal shares and sends available yield to the
-  fixed yield recipient; vested but unclaimed principal remains claimable by
-  the recipient;
-- vault losses are borne proportionally by outstanding principal without
-  blocking claims.
-
-Supported tokens must remain transferable and move the exact requested token
-or share amount. Pauses, blacklists, transfer fees, and incompatible token or
-vault upgrades are outside the accounting model and must be excluded during
-deployment review.
-
-ERC-4626 escrows target reviewed Yearn-style vaults with conventional share
-precision. Each lifecycle transition can differ by less than one raw share due
-to ERC-4626 floor rounding; the contract deliberately accepts that negligible
-bound instead of maintaining cross-call rounding checkpoints. Coarse-share
-vaults are outside the supported deployment policy.
+deploy_erc4626_vesting(
+    vault,
+    recipient,
+    funded_shares,
+    vesting_duration,
+    vesting_start,
+    cliff_length,
+    permissionless_claims,
+    revoker,
+    yield_recipient,
+)
+```
 
 Factory creation events are the canonical escrow index. The contracts do not
 maintain a duplicate on-chain registry.
+
+## Documentation
+
+- [Architecture and security model](docs/architecture.md)
+- [Complete contract API](docs/api.md)
+- [ERC-4626 accounting](docs/erc4626.md)
+- [Integration and v0.3 migration guide](docs/integration.md)
+- [Development and deployment guide](docs/deployment.md)
+
+## Roles
+
+| Role | Authority |
+| --- | --- |
+| `recipient` | Owns vested principal, may redirect its own claims, and controls permissionless claiming. |
+| `revoker` | May stop vesting immediately and send unvested principal to an explicit receiver, or permanently renounce that authority. |
+| `receiver` | A per-call transfer destination with no persistent authority. |
+| `funder` | Supplies the initial tokens or shares and receives no implicit post-deployment rights. |
+| `yield_recipient` | Fixed destination for all ERC-4626 yield shares. |
+
+Permissionless claiming permits third-party execution, not third-party routing:
+a caller other than the recipient can only send principal to the stored
+recipient. ERC-4626 yield collection is permissionless because its destination
+is fixed.
 
 ## Development
 
@@ -84,44 +82,12 @@ The contracts use Vyper 0.4.3 and Titanoboa on Python 3.11:
 ```sh
 uv sync --locked
 uv run --locked vesting-escrow-compile
+uv run --locked pytest
 uv run --locked pytest tests/functional/ --gas-profile
-uv run --locked pytest tests/integration/
 ```
 
-Run the pinned real-vault smoke test with an archive-capable Ethereum RPC:
-
-```sh
-MAINNET_RPC=https://... uv run --locked vesting-escrow-fork-smoke
-```
-
-The smoke test defaults to sUSDS at Ethereum block `25,587,000`. Set
-`MAINNET_BLOCK`, `ERC4626_VAULT`, `ERC4626_HOLDER`, and `ERC4626_AMOUNT` to use
-another standards-compliant vault and matching pinned state.
-
-After changing dependencies in `pyproject.toml`, regenerate the lock file with:
-
-```sh
-uv lock
-```
-
-## Development deployment
-
-Deploy locally without a key:
-
-```sh
-uv run --locked vesting-escrow-deploy
-```
-
-For a development network, secrets are read only from the environment:
-
-```sh
-RPC_URL=https://... DEPLOYER_PRIVATE_KEY=... \
-  uv run --locked vesting-escrow-deploy --expected-chain-id 11155111
-```
-
-Production deployment requires an independent audit, a reviewed deployment
-manifest, source verification, and low-value standard-token and ERC-4626
-canaries.
+See the [deployment guide](docs/deployment.md) for local deployment, pinned
+mainnet-fork testing, and the production checklist.
 
 ## Escrow manager
 
@@ -130,15 +96,17 @@ find and manage escrows deployed by the current Yearn factory and the LlamaPay
 v2 factory. The app and its Ethereum event indexer are
 [open source](https://github.com/wavey0x/vesting-escrow-app).
 
+The app is independent software. This contracts repository does not index or
+operate deployed escrows.
+
 ## Production deployments
 
-The 0.4.0 contracts on `master` have not yet been deployed or audited. This
-release is separate from the historical v0.x releases below. Existing
-factories and escrows remain immutable and unaffected.
+Existing factories and escrows are immutable and unaffected by development of
+0.4.0. Integrators must select the ABI matching each deployed version.
 
 ### [v0.3.0](https://github.com/yearn/yearn-vesting-escrow/tree/v0.3.0)
 
-This is the current Yearn factory.
+This is the current Yearn production factory.
 
 - Factory: [`0x200C92Dd85730872Ab6A1e7d5E40A067066257cF`](https://etherscan.io/address/0x200c92dd85730872ab6a1e7d5e40a067066257cf#code)
 - Implementation: [`0x9692F652A3048eb7F5074e12B907F20d33F37a01`](https://etherscan.io/address/0x9692f652a3048eb7f5074e12b907f20d33f37a01#code)
