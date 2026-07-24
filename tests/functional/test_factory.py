@@ -15,13 +15,13 @@ def deploy_standard(
     token,
     funder,
     recipient,
-    owner,
+    revoker,
     amount,
     duration,
     start,
     *,
     cliff=0,
-    open_claim=True,
+    permissionless_claims=True,
 ):
     return factory.deploy_vesting_contract(
         token,
@@ -30,8 +30,8 @@ def deploy_standard(
         duration,
         start,
         cliff,
-        open_claim,
-        owner,
+        permissionless_claims,
+        revoker,
         sender=funder,
     )
 
@@ -41,14 +41,14 @@ def deploy_erc4626(
     vault,
     funder,
     recipient,
-    owner,
+    revoker,
     yield_recipient,
     shares,
     duration,
     start,
     *,
     cliff=0,
-    open_claim=True,
+    permissionless_claims=True,
 ):
     return factory.deploy_erc4626_vesting(
         vault,
@@ -57,8 +57,8 @@ def deploy_erc4626(
         duration,
         start,
         cliff,
-        open_claim,
-        owner,
+        permissionless_claims,
+        revoker,
         yield_recipient,
         sender=funder,
     )
@@ -68,16 +68,12 @@ def test_factory_configuration(
     vesting_factory,
     standard_target,
     erc4626_target,
-    owner,
 ):
     assert vesting_factory.STANDARD_TARGET() == standard_target.address
     assert vesting_factory.ERC4626_TARGET() == erc4626_target.address
-    assert standard_target.implementation_kind() == 1
-    assert erc4626_target.implementation_kind() == 2
-    assert vesting_factory.escrow_kind(owner) == 0
 
 
-def test_minimal_deploy_overloads(
+def test_deployment_configuration_is_explicit(
     chain,
     vesting_factory,
     owner,
@@ -94,6 +90,10 @@ def test_minimal_deploy_overloads(
         recipient,
         amount,
         duration,
+        chain.pending_timestamp,
+        0,
+        True,
+        owner,
         sender=owner,
     )
 
@@ -104,15 +104,20 @@ def test_minimal_deploy_overloads(
         recipient,
         amount,
         duration,
+        chain.pending_timestamp,
+        0,
+        True,
+        owner,
+        owner,
         sender=owner,
     )
 
     standard = at("VestingEscrowSimple", standard_address)
     erc4626 = at("VestingEscrow4626", erc4626_address)
     assert standard.start_time() == chain.pending_timestamp
-    assert standard.owner() == owner
+    assert standard.revoker() == owner
     assert erc4626.start_time() == chain.pending_timestamp
-    assert erc4626.revocation_owner() == owner
+    assert erc4626.revoker() == owner
     assert erc4626.yield_recipient() == owner
 
 
@@ -125,7 +130,7 @@ def test_deploys_standard_escrow(
     duration,
     start_time,
     cliff_duration,
-    open_claim,
+    permissionless_claims,
 ):
     token.mint(owner, amount, sender=owner)
     token.approve(vesting_factory, amount, sender=owner)
@@ -139,7 +144,7 @@ def test_deploys_standard_escrow(
         duration,
         start_time,
         cliff=cliff_duration,
-        open_claim=open_claim,
+        permissionless_claims=permissionless_claims,
     )
     escrow = at("VestingEscrowSimple", escrow_address)
     event = events(vesting_factory, "TokenVestingEscrowCreated", include_child_logs=False)[0]
@@ -148,20 +153,18 @@ def test_deploys_standard_escrow(
     assert event.token == token.address
     assert event.recipient == recipient
     assert event.funder == owner
-    assert event.owner == owner
+    assert event.revoker == owner
     assert event.amount == amount
     assert event.vesting_start == start_time
     assert event.vesting_duration == duration
     assert event.cliff_length == cliff_duration
-    assert event.open_claim == open_claim
+    assert event.permissionless_claims == permissionless_claims
 
-    assert vesting_factory.escrows_length() == 1
-    assert vesting_factory.escrows(0) == escrow.address
-    assert vesting_factory.escrow_kind(escrow) == 1
-    assert escrow.initialized()
     assert escrow.token() == token.address
     assert escrow.recipient() == recipient
-    assert escrow.owner() == owner
+    assert escrow.revoker() == owner
+    assert escrow.permissionless_claims() == permissionless_claims
+    assert escrow.disabled_at() == 0
     assert escrow.total_locked() == amount
     assert token.balanceOf(escrow) == amount
 
@@ -199,7 +202,7 @@ def test_deploys_erc4626_escrow_with_distinct_roles(
     assert event.vault == vault.address
     assert event.recipient == recipient
     assert event.funder == owner
-    assert event.revocation_owner == owner
+    assert event.revoker == owner
     assert event.yield_recipient == cold_storage
     assert event.asset_token == asset_token.address
     assert event.funded_shares == amount
@@ -207,20 +210,18 @@ def test_deploys_erc4626_escrow_with_distinct_roles(
     assert event.vesting_start == start_time
     assert event.vesting_duration == duration
     assert event.cliff_length == cliff_duration
+    assert event.permissionless_claims
 
-    assert vesting_factory.escrows_length() == 1
-    assert vesting_factory.escrows(0) == escrow.address
-    assert vesting_factory.escrow_kind(escrow) == 2
     assert escrow.vault() == vault.address
-    assert escrow.asset_token() == asset_token.address
-    assert escrow.funded_shares() == amount
     assert escrow.principal_assets() == amount
-    assert escrow.revocation_owner() == owner
+    assert escrow.revoker() == owner
     assert escrow.yield_recipient() == cold_storage
+    assert escrow.permissionless_claims()
+    assert escrow.disabled_at() == 0
     assert vault.balanceOf(escrow) == amount
 
 
-def test_zero_owner_is_allowed_for_irrevocable_escrows(
+def test_zero_revoker_is_allowed_for_irrevocable_escrows(
     vesting_factory,
     owner,
     recipient,
@@ -257,8 +258,8 @@ def test_zero_owner_is_allowed_for_irrevocable_escrows(
         start_time,
     )
 
-    assert at("VestingEscrowSimple", standard).owner() == ZERO_ADDRESS
-    assert at("VestingEscrow4626", erc4626).revocation_owner() == ZERO_ADDRESS
+    assert at("VestingEscrowSimple", standard).revoker() == ZERO_ADDRESS
+    assert at("VestingEscrow4626", erc4626).revoker() == ZERO_ADDRESS
 
 
 def test_erc4626_rejects_invalid_yield_recipients(
@@ -372,7 +373,6 @@ def test_plain_token_cannot_deploy_erc4626(
         )
 
     assert token.balanceOf(owner) == amount
-    assert vesting_factory.escrows_length() == 0
 
 
 def test_partial_vault_cannot_deploy_erc4626(
@@ -402,7 +402,6 @@ def test_partial_vault_cannot_deploy_erc4626(
         )
 
     assert vault.balanceOf(owner) == amount
-    assert vesting_factory.escrows_length() == 0
 
 
 def test_fee_charging_share_token_is_rejected(
@@ -563,10 +562,10 @@ def test_factory_rejects_invalid_targets(
             sender=owner,
         )
 
-    with boa.reverts(dev="invalid standard target"):
+    with boa.reverts(dev="invalid erc4626 target"):
         deploy(
             "VestingEscrowFactory",
-            erc4626_target,
             standard_target,
+            ZERO_ADDRESS,
             sender=owner,
         )

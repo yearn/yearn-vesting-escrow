@@ -102,7 +102,7 @@ def another_amount():
 
 
 @pytest.fixture(scope="module")
-def open_claim():
+def permissionless_claims():
     return True
 
 
@@ -117,7 +117,7 @@ def vesting(
     another_amount,
     start_time,
     cliff_duration,
-    open_claim,
+    permissionless_claims,
     duration,
 ):
     token.mint(owner, amount, sender=owner)
@@ -131,7 +131,7 @@ def vesting(
         duration,
         start_time,
         cliff_duration,
-        open_claim,
+        permissionless_claims,
         owner,
         sender=owner,
     )
@@ -148,7 +148,7 @@ def yield_vesting(
     duration,
     start_time,
     cliff_duration,
-    open_claim,
+    permissionless_claims,
 ):
     vault.mint(owner, amount, sender=owner)
     vault.approve(vesting_factory, amount, sender=owner)
@@ -159,7 +159,7 @@ def yield_vesting(
         duration,
         start_time,
         cliff_duration,
-        open_claim,
+        permissionless_claims,
         owner,
         owner,
         sender=owner,

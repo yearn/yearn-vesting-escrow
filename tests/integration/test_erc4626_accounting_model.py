@@ -307,8 +307,10 @@ def test_deployed_erc4626_lifecycle_matches_model(principal, actions, revoke_bps
 
             assert escrow.claimed_principal_assets() == claimed_assets
             assert escrow.claimable_principal_assets() == claimable_assets
-            assert escrow.claimable_shares() == expected_claimable_shares
-            assert escrow.locked_shares() == principal_pool - expected_claimable_shares
+            assert escrow.preview_principal_claim(UINT256_MAX) == (
+                claimable_assets,
+                expected_claimable_shares,
+            )
             assert escrow.claimable_yield_shares() == expected_yield_shares
             assert vault.balanceOf(escrow) == balance
             assert vault.balanceOf(recipient) == recipient_shares
@@ -332,7 +334,7 @@ def test_deployed_erc4626_lifecycle_matches_model(principal, actions, revoke_bps
                 recipient_assets,
             )
 
-            escrow.revoke(sender=owner)
+            escrow.revoke(owner, sender=owner)
             balance -= clawback_shares + yield_shares
             owner_shares += clawback_shares + yield_shares
 
@@ -342,7 +344,7 @@ def test_deployed_erc4626_lifecycle_matches_model(principal, actions, revoke_bps
 
         remaining_assets = final_vested_assets - claimed_assets
         principal_pool, _ = split_at_rate(balance, assets_per_share, remaining_assets)
-        assert escrow.claim_principal(sender=recipient) == principal_pool
+        assert escrow.claim_principal(recipient, UINT256_MAX, sender=recipient) == principal_pool
         balance -= principal_pool
         recipient_shares += principal_pool
         claimed_assets = final_vested_assets

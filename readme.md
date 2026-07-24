@@ -12,21 +12,54 @@ factory:
   standard-token and ERC-4626 targets.
 
 The factory exposes `deploy_vesting_contract()` for standard tokens and
-`deploy_erc4626_vesting()` for vault shares. Both implementations share only
-stateless vesting arithmetic through `modules/vesting_math.vy`; their storage,
-external APIs, and accounting remain separate.
+`deploy_erc4626_vesting()` for vault shares. Each function has one full,
+explicit signature; defaults belong in deployment tooling rather than
+contract-generated overloads. Both implementations share only stateless
+vesting arithmetic through `modules/vesting_math.vy`; their storage, external
+APIs, and accounting remain separate.
+
+Both escrow types use the same role vocabulary:
+
+- `recipient` owns vested principal, may redirect its own claims, and controls
+  whether third parties may trigger claims to the recipient;
+- `revoker` may stop vesting and send unvested principal to an explicit
+  receiver, or permanently renounce that authority;
+- `receiver` is only a per-call transfer destination and has no persistent
+  authority;
+- `funder` supplies the initial tokens and has no implicit post-deployment
+  rights;
+- ERC-4626 escrows additionally assign all yield to a fixed
+  `yield_recipient`.
+
+Permissionless claiming permits third-party execution, not third-party
+routing: a caller other than the recipient can only send a claim to the stored
+recipient.
+
+The lifecycle methods use explicit destinations and limits:
+
+- standard escrows expose `claim(receiver, max_amount)`;
+- ERC-4626 escrows expose
+  `claim_principal(receiver, max_principal_assets)`;
+- both expose `revoke(receiver)`, `renounce_revocation()`, and
+  `set_permissionless_claims(enabled)`.
+
+`disabled_at()` is zero while an escrow has not been revoked. Lifecycle views
+use `end_time()` as the effective stop until immediate revocation records its
+block timestamp.
 
 The ERC-4626 escrow records principal in underlying-asset units at
 initialization. Its API makes units explicit:
 
-- `claimable_principal_assets()` and `vested_principal_assets()` report assets;
-- `claimable_shares()` and `locked_shares()` report vault shares;
+- `claimable_principal_assets()` reports currently claimable principal assets;
+- `preview_principal_claim(max_principal_assets)` reports the principal assets
+  and vault shares an exact claim would transfer;
 - `claim_principal()` accepts a maximum principal amount in asset units and
   pays the corresponding vault shares;
 - `claim_yield()` sends shares worth more than the remaining principal to a
   fixed `yield_recipient`, which is independent from the revocation owner;
 - revocation returns unvested principal shares and sends available yield to the
-  fixed yield recipient;
+  fixed yield recipient; vested but unclaimed principal remains claimable by
+  the recipient;
 - vault losses are borne proportionally by outstanding principal without
   blocking claims.
 
@@ -41,8 +74,8 @@ to ERC-4626 floor rounding; the contract deliberately accepts that negligible
 bound instead of maintaining cross-call rounding checkpoints. Coarse-share
 vaults are outside the supported deployment policy.
 
-The factory registry reports `escrow_kind(address) == 1` for standard-token
-escrows, `2` for ERC-4626 escrows, and `0` for unknown addresses.
+Factory creation events are the canonical escrow index. The contracts do not
+maintain a duplicate on-chain registry.
 
 ## Development
 

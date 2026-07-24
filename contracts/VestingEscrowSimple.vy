@@ -13,28 +13,28 @@ from modules import vesting_math
 
 
 event Claim:
-    recipient: indexed(address)
-    claimed: uint256
+    receiver: indexed(address)
+    amount: uint256
 
 
 event Revoked:
-    recipient: address
-    owner: address
-    rugged: uint256
+    recipient: indexed(address)
+    revoker: indexed(address)
+    receiver: indexed(address)
+    unvested_amount: uint256
     ts: uint256
 
 
-event Disowned:
-    owner: address
+event RevocationRenounced:
+    revoker: indexed(address)
 
 
-event SetOpenClaim:
-    state: bool
+event PermissionlessClaimsSet:
+    enabled: bool
 
 
 MAX_AMOUNT: constant(uint256) = 2**128 - 1
 MAX_DURATION: constant(uint256) = 2**64 - 1
-IMPLEMENTATION_KIND: constant(uint256) = 1
 
 recipient: public(address)
 token: public(IERC20)
@@ -43,59 +43,60 @@ end_time: public(uint256)
 cliff_length: public(uint256)
 total_locked: public(uint256)
 total_claimed: public(uint256)
+# Zero until revocation; active escrows use end_time as their effective stop.
 disabled_at: public(uint256)
-open_claim: public(bool)
-initialized: public(bool)
-owner: public(address)
+claims_closed: bool
+revoker: public(address)
 
 
 @deploy
 def __init__():
     # Prevent initialization of the implementation itself.
-    self.initialized = True
-
-
-@external
-@pure
-def implementation_kind() -> uint256:
-    return IMPLEMENTATION_KIND
+    self.recipient = self
 
 
 @external
 def initialize(
-    owner: address,
+    revoker: address,
     token: IERC20,
     recipient: address,
     amount: uint256,
     start_time: uint256,
     end_time: uint256,
     cliff_length: uint256,
-    open_claim: bool,
+    permissionless_claims: bool,
 ) -> bool:
     """Initialize one funded minimal proxy."""
-    assert not self.initialized  # dev: can only initialize once
-    self.initialized = True
+    assert self.recipient == empty(address)  # dev: can only initialize once
 
     assert amount > 0  # dev: amount must be > 0
     assert amount <= MAX_AMOUNT  # dev: amount too large
-    assert recipient not in [empty(address), self, token.address, owner]  # dev: invalid recipient
+    assert recipient not in [empty(address), self, token.address, revoker]  # dev: invalid recipient
     assert end_time > block.timestamp and end_time > start_time  # dev: invalid vesting period
     duration: uint256 = end_time - start_time
     assert duration <= MAX_DURATION  # dev: duration too long
     assert cliff_length <= duration  # dev: invalid cliff
     assert staticcall token.balanceOf(self) >= amount  # dev: escrow not funded
 
-    self.owner = owner
+    self.revoker = revoker
     self.token = token
     self.recipient = recipient
     self.start_time = start_time
     self.end_time = end_time
     self.cliff_length = cliff_length
     self.total_locked = amount
-    self.disabled_at = end_time
-    self.open_claim = open_claim
+    self.claims_closed = not permissionless_claims
 
     return True
+
+
+@internal
+@view
+def _vesting_end() -> uint256:
+    disabled_at: uint256 = self.disabled_at
+    if disabled_at == 0:
+        return self.end_time
+    return disabled_at
 
 
 @internal
@@ -118,87 +119,77 @@ def _unclaimed(time: uint256) -> uint256:
 
 @external
 @view
-def unclaimed() -> uint256:
-    return self._unclaimed(min(block.timestamp, self.disabled_at))
+def claimable() -> uint256:
+    return self._unclaimed(min(block.timestamp, self._vesting_end()))
 
 
 @external
 @view
 def locked() -> uint256:
-    time: uint256 = min(block.timestamp, self.disabled_at)
-    return self._total_vested_at(self.disabled_at) - self._total_vested_at(time)
+    vesting_end: uint256 = self._vesting_end()
+    time: uint256 = min(block.timestamp, vesting_end)
+    return self._total_vested_at(vesting_end) - self._total_vested_at(time)
+
+
+@external
+@view
+def permissionless_claims() -> bool:
+    return not self.claims_closed
 
 
 @external
 @nonreentrant
 def claim(
-    beneficiary: address = msg.sender,
-    amount: uint256 = max_value(uint256),
+    receiver: address,
+    max_amount: uint256,
 ) -> uint256:
     recipient: address = self.recipient
-    assert msg.sender == recipient or self.open_claim and beneficiary == recipient  # dev: not authorized
+    assert receiver != empty(address)  # dev: invalid receiver
+    assert msg.sender == recipient or not self.claims_closed and receiver == recipient  # dev: not authorized
 
-    claim_period_end: uint256 = min(block.timestamp, self.disabled_at)
-    claimable: uint256 = min(self._unclaimed(claim_period_end), amount)
+    claim_period_end: uint256 = min(block.timestamp, self._vesting_end())
+    claimable: uint256 = min(self._unclaimed(claim_period_end), max_amount)
     self.total_claimed += claimable
 
     if claimable > 0:
-        assert extcall self.token.transfer(beneficiary, claimable, default_return_value=True)
-    log Claim(recipient=beneficiary, claimed=claimable)
+        assert extcall self.token.transfer(receiver, claimable, default_return_value=True)
+        log Claim(receiver=receiver, amount=claimable)
     return claimable
 
 
 @external
 @nonreentrant
-def revoke(
-    ts: uint256 = block.timestamp,
-    beneficiary: address = msg.sender,
-):
-    owner: address = self.owner
-    assert msg.sender == owner  # dev: not owner
-    assert ts >= block.timestamp and ts < self.end_time  # dev: no back to the future
+def revoke(receiver: address):
+    revoker: address = self.revoker
+    assert msg.sender == revoker  # dev: not revoker
+    assert receiver != empty(address)  # dev: invalid receiver
+    assert block.timestamp < self.end_time  # dev: vesting complete
 
-    ruggable: uint256 = self._total_vested_at(self.disabled_at) - self._total_vested_at(ts)
-    self.disabled_at = ts
-    self.owner = empty(address)
+    unvested_amount: uint256 = self.total_locked - self._total_vested_at(block.timestamp)
+    self.disabled_at = block.timestamp
+    self.revoker = empty(address)
 
-    if ruggable > 0:
-        assert extcall self.token.transfer(beneficiary, ruggable, default_return_value=True)
-    log Disowned(owner=owner)
-    log Revoked(recipient=self.recipient, owner=owner, rugged=ruggable, ts=ts)
-
-
-@external
-def disown():
-    owner: address = self.owner
-    assert msg.sender == owner  # dev: not owner
-    self.owner = empty(address)
-    log Disowned(owner=owner)
+    if unvested_amount > 0:
+        assert extcall self.token.transfer(receiver, unvested_amount, default_return_value=True)
+    log Revoked(
+        recipient=self.recipient,
+        revoker=revoker,
+        receiver=receiver,
+        unvested_amount=unvested_amount,
+        ts=block.timestamp,
+    )
 
 
 @external
-def set_open_claim(open_claim: bool):
+def renounce_revocation():
+    revoker: address = self.revoker
+    assert msg.sender == revoker  # dev: not revoker
+    self.revoker = empty(address)
+    log RevocationRenounced(revoker=revoker)
+
+
+@external
+def set_permissionless_claims(enabled: bool):
     assert msg.sender == self.recipient  # dev: not recipient
-    self.open_claim = open_claim
-    log SetOpenClaim(state=open_claim)
-
-
-@external
-@nonreentrant
-def collect_dust(
-    token: IERC20,
-    beneficiary: address = msg.sender,
-):
-    recipient: address = self.recipient
-    assert msg.sender == recipient or self.open_claim and beneficiary == recipient  # dev: not authorized
-
-    amount: uint256 = staticcall token.balanceOf(self)
-    if token.address == self.token.address:
-        required: uint256 = self._total_vested_at(self.disabled_at) - self.total_claimed
-        assert amount >= required  # dev: insolvent
-        amount -= required
-
-    if amount > 0:
-        assert extcall token.transfer(beneficiary, amount, default_return_value=True)
-    required_balance: uint256 = self._total_vested_at(self.disabled_at) - self.total_claimed
-    assert staticcall self.token.balanceOf(self) >= required_balance
+    self.claims_closed = not enabled
+    log PermissionlessClaimsSet(enabled=enabled)

@@ -8,7 +8,6 @@
 @notice Vests underlying-asset principal while holding and paying ERC-4626 shares
 """
 
-from ethereum.ercs import IERC20
 from modules import vesting_math
 
 
@@ -21,7 +20,7 @@ interface IERC4626:
 
 
 event PrincipalClaim:
-    beneficiary: indexed(address)
+    receiver: indexed(address)
     principal_assets: uint256
     shares: uint256
 
@@ -33,71 +32,61 @@ event YieldClaim:
 
 event Revoked:
     recipient: indexed(address)
-    revocation_owner: indexed(address)
-    beneficiary: indexed(address)
-    clawed_back_principal_assets: uint256
+    revoker: indexed(address)
+    receiver: indexed(address)
+    unvested_principal_assets: uint256
     shares: uint256
     ts: uint256
 
 
 event RevocationRenounced:
-    revocation_owner: indexed(address)
+    revoker: indexed(address)
 
 
-event SetOpenClaim:
-    state: bool
+event PermissionlessClaimsSet:
+    enabled: bool
 
 
 MAX_PRINCIPAL: constant(uint256) = 2**128 - 1
 MAX_DURATION: constant(uint256) = 2**64 - 1
-IMPLEMENTATION_KIND: constant(uint256) = 2
 
 recipient: public(address)
 vault: public(IERC4626)
-asset_token: public(address)
 start_time: public(uint256)
 end_time: public(uint256)
 cliff_length: public(uint256)
-funded_shares: public(uint256)
 principal_assets: public(uint256)
 claimed_principal_assets: public(uint256)
+# Zero until revocation; active escrows use end_time as their effective stop.
 disabled_at: public(uint256)
-open_claim: public(bool)
-initialized: public(bool)
-revocation_owner: public(address)
+claims_closed: bool
+revoker: public(address)
 yield_recipient: public(address)
 
 
 @deploy
 def __init__():
     # Prevent initialization of the implementation itself.
-    self.initialized = True
-
-
-@external
-@pure
-def implementation_kind() -> uint256:
-    return IMPLEMENTATION_KIND
+    self.recipient = self
 
 
 @external
 def initialize(
-    revocation_owner: address,
+    revoker: address,
     vault: IERC4626,
     recipient: address,
     funded_shares: uint256,
     start_time: uint256,
     end_time: uint256,
     cliff_length: uint256,
-    open_claim: bool,
+    permissionless_claims: bool,
     yield_recipient: address,
 ) -> bool:
     """Initialize one funded ERC-4626 minimal proxy."""
-    assert not self.initialized  # dev: can only initialize once
-    self.initialized = True
+    assert self.recipient == empty(address)  # dev: can only initialize once
 
     assert funded_shares > 0  # dev: shares must be > 0
-    assert recipient not in [empty(address), self, vault.address, revocation_owner]  # dev: invalid recipient
+    assert recipient not in [empty(address), self, vault.address, revoker]  # dev: invalid recipient
     assert end_time > block.timestamp and end_time > start_time  # dev: invalid vesting period
     duration: uint256 = end_time - start_time
     assert duration <= MAX_DURATION  # dev: duration too long
@@ -118,20 +107,26 @@ def initialize(
     roundtrip_shares: uint256 = staticcall vault.convertToShares(principal_assets)
     assert roundtrip_shares > 0 and roundtrip_shares <= funded_shares  # dev: invalid conversion
 
-    self.revocation_owner = revocation_owner
+    self.revoker = revoker
     self.vault = vault
-    self.asset_token = asset_token
     self.recipient = recipient
     self.start_time = start_time
     self.end_time = end_time
     self.cliff_length = cliff_length
-    self.funded_shares = funded_shares
     self.principal_assets = principal_assets
-    self.disabled_at = end_time
-    self.open_claim = open_claim
+    self.claims_closed = not permissionless_claims
     self.yield_recipient = yield_recipient
 
     return True
+
+
+@internal
+@view
+def _vesting_end() -> uint256:
+    disabled_at: uint256 = self.disabled_at
+    if disabled_at == 0:
+        return self.end_time
+    return disabled_at
 
 
 @internal
@@ -149,7 +144,7 @@ def _vested_principal_assets(time: uint256) -> uint256:
 @internal
 @view
 def _remaining_principal_assets() -> uint256:
-    return self._vested_principal_assets(self.disabled_at) - self.claimed_principal_assets
+    return self._vested_principal_assets(self._vesting_end()) - self.claimed_principal_assets
 
 
 @internal
@@ -177,58 +172,38 @@ def _split_principal_and_yield(remaining_assets: uint256) -> (uint256, uint256):
 
 @internal
 @view
-def _claimable_shares(time: uint256) -> uint256:
+def _preview_principal_claim(time: uint256, max_principal_assets: uint256) -> (uint256, uint256):
     remaining_assets: uint256 = self._remaining_principal_assets()
-    claimable_assets: uint256 = self._claimable_principal_assets(time)
+    claimable_assets: uint256 = min(self._claimable_principal_assets(time), max_principal_assets)
     if claimable_assets == 0:
-        return 0
+        return 0, 0
 
     principal_shares: uint256 = 0
     ignored_yield: uint256 = 0
     principal_shares, ignored_yield = self._split_principal_and_yield(remaining_assets)
-    return vesting_math.payout_shares(
-        principal_shares,
-        remaining_assets,
-        remaining_assets - claimable_assets,
+    return (
+        claimable_assets,
+        vesting_math.payout_shares(
+            principal_shares,
+            remaining_assets,
+            remaining_assets - claimable_assets,
+        ),
     )
-
-
-@external
-@view
-def vested_principal_assets() -> uint256:
-    return self._vested_principal_assets(min(block.timestamp, self.disabled_at))
 
 
 @external
 @view
 def claimable_principal_assets() -> uint256:
-    return self._claimable_principal_assets(min(block.timestamp, self.disabled_at))
+    return self._claimable_principal_assets(min(block.timestamp, self._vesting_end()))
 
 
 @external
 @view
-def claimable_shares() -> uint256:
-    return self._claimable_shares(min(block.timestamp, self.disabled_at))
-
-
-@external
-@view
-def locked_shares() -> uint256:
-    time: uint256 = min(block.timestamp, self.disabled_at)
-    remaining_assets: uint256 = self._remaining_principal_assets()
-    if remaining_assets == 0:
-        return 0
-
-    principal_shares: uint256 = 0
-    ignored_yield: uint256 = 0
-    principal_shares, ignored_yield = self._split_principal_and_yield(remaining_assets)
-    claimable_assets: uint256 = self._claimable_principal_assets(time)
-    claimable_shares: uint256 = vesting_math.payout_shares(
-        principal_shares,
-        remaining_assets,
-        remaining_assets - claimable_assets,
+def preview_principal_claim(max_principal_assets: uint256) -> (uint256, uint256):
+    return self._preview_principal_claim(
+        min(block.timestamp, self._vesting_end()),
+        max_principal_assets,
     )
-    return principal_shares - claimable_shares
 
 
 @external
@@ -241,35 +216,33 @@ def claimable_yield_shares() -> uint256:
 
 
 @external
+@view
+def permissionless_claims() -> bool:
+    return not self.claims_closed
+
+
+@external
 @nonreentrant
 def claim_principal(
-    beneficiary: address = msg.sender,
-    max_principal_assets: uint256 = max_value(uint256),
+    receiver: address,
+    max_principal_assets: uint256,
 ) -> uint256:
     """Claim up to a requested amount of currently vested principal."""
     recipient: address = self.recipient
-    assert msg.sender == recipient or self.open_claim and beneficiary == recipient  # dev: not authorized
+    assert receiver != empty(address)  # dev: invalid receiver
+    assert msg.sender == recipient or not self.claims_closed and receiver == recipient  # dev: not authorized
 
-    claim_period_end: uint256 = min(block.timestamp, self.disabled_at)
-    remaining_assets: uint256 = self._remaining_principal_assets()
-    claimable_assets: uint256 = min(
-        self._claimable_principal_assets(claim_period_end),
+    claimable_assets: uint256 = 0
+    shares: uint256 = 0
+    claimable_assets, shares = self._preview_principal_claim(
+        min(block.timestamp, self._vesting_end()),
         max_principal_assets,
-    )
-
-    principal_shares: uint256 = 0
-    ignored_yield: uint256 = 0
-    principal_shares, ignored_yield = self._split_principal_and_yield(remaining_assets)
-    shares: uint256 = vesting_math.payout_shares(
-        principal_shares,
-        remaining_assets,
-        remaining_assets - claimable_assets,
     )
     self.claimed_principal_assets += claimable_assets
 
     if shares > 0:
-        assert extcall self.vault.transfer(beneficiary, shares, default_return_value=True)
-    log PrincipalClaim(beneficiary=beneficiary, principal_assets=claimable_assets, shares=shares)
+        assert extcall self.vault.transfer(receiver, shares, default_return_value=True)
+        log PrincipalClaim(receiver=receiver, principal_assets=claimable_assets, shares=shares)
     return shares
 
 
@@ -278,7 +251,7 @@ def claim_principal(
 def claim_yield() -> uint256:
     """Send current yield shares to the fixed yield recipient."""
     yield_recipient: address = self.yield_recipient
-    assert self.initialized  # dev: not initialized
+    assert self.recipient != empty(address)  # dev: not initialized
 
     ignored_principal: uint256 = 0
     yield_shares: uint256 = 0
@@ -292,74 +265,54 @@ def claim_yield() -> uint256:
 
 @external
 @nonreentrant
-def revoke(
-    ts: uint256 = block.timestamp,
-    beneficiary: address = msg.sender,
-):
+def revoke(receiver: address):
     """Stop vesting and return unvested principal shares and current yield."""
-    revocation_owner: address = self.revocation_owner
-    assert msg.sender == revocation_owner  # dev: not revocation owner
-    assert ts >= block.timestamp and ts < self.end_time  # dev: no back to the future
+    revoker: address = self.revoker
+    assert msg.sender == revoker  # dev: not revoker
+    assert receiver != empty(address)  # dev: invalid receiver
+    assert block.timestamp < self.end_time  # dev: vesting complete
 
     remaining_assets: uint256 = self.principal_assets - self.claimed_principal_assets
-    recipient_assets: uint256 = self._vested_principal_assets(ts) - self.claimed_principal_assets
+    recipient_assets: uint256 = self._vested_principal_assets(block.timestamp) - self.claimed_principal_assets
     principal_shares: uint256 = 0
     yield_shares: uint256 = 0
     principal_shares, yield_shares = self._split_principal_and_yield(remaining_assets)
-    clawback_shares: uint256 = vesting_math.payout_shares(
+    unvested_shares: uint256 = vesting_math.payout_shares(
         principal_shares,
         remaining_assets,
         recipient_assets,
     )
-    clawback_assets: uint256 = remaining_assets - recipient_assets
+    unvested_assets: uint256 = remaining_assets - recipient_assets
 
-    self.disabled_at = ts
-    self.revocation_owner = empty(address)
+    self.disabled_at = block.timestamp
+    self.revoker = empty(address)
 
-    if clawback_shares > 0:
-        assert extcall self.vault.transfer(beneficiary, clawback_shares, default_return_value=True)
+    if unvested_shares > 0:
+        assert extcall self.vault.transfer(receiver, unvested_shares, default_return_value=True)
     if yield_shares > 0:
         assert extcall self.vault.transfer(self.yield_recipient, yield_shares, default_return_value=True)
         log YieldClaim(recipient=self.yield_recipient, shares=yield_shares)
 
     log Revoked(
         recipient=self.recipient,
-        revocation_owner=revocation_owner,
-        beneficiary=beneficiary,
-        clawed_back_principal_assets=clawback_assets,
-        shares=clawback_shares,
-        ts=ts,
+        revoker=revoker,
+        receiver=receiver,
+        unvested_principal_assets=unvested_assets,
+        shares=unvested_shares,
+        ts=block.timestamp,
     )
 
 
 @external
 def renounce_revocation():
-    revocation_owner: address = self.revocation_owner
-    assert msg.sender == revocation_owner  # dev: not revocation owner
-    self.revocation_owner = empty(address)
-    log RevocationRenounced(revocation_owner=revocation_owner)
+    revoker: address = self.revoker
+    assert msg.sender == revoker  # dev: not revoker
+    self.revoker = empty(address)
+    log RevocationRenounced(revoker=revoker)
 
 
 @external
-def set_open_claim(open_claim: bool):
+def set_permissionless_claims(enabled: bool):
     assert msg.sender == self.recipient  # dev: not recipient
-    self.open_claim = open_claim
-    log SetOpenClaim(state=open_claim)
-
-
-@external
-@nonreentrant
-def collect_dust(
-    token: IERC20,
-    beneficiary: address = msg.sender,
-):
-    """Recover unrelated tokens without touching any vault shares."""
-    recipient: address = self.recipient
-    assert msg.sender == recipient or self.open_claim and beneficiary == recipient  # dev: not authorized
-    assert token.address != self.vault.address  # dev: vault shares protected
-
-    protected_shares: uint256 = staticcall self.vault.balanceOf(self)
-    amount: uint256 = staticcall token.balanceOf(self)
-    if amount > 0:
-        assert extcall token.transfer(beneficiary, amount, default_return_value=True)
-    assert staticcall self.vault.balanceOf(self) >= protected_shares
+    self.claims_closed = not enabled
+    log PermissionlessClaimsSet(enabled=enabled)

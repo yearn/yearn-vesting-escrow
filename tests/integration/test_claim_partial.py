@@ -19,7 +19,7 @@ def test_claim_partial_copy(
         timestamp = min(start_time + cliff_duration + sleep_time, end_time)
         chain.pending_timestamp = timestamp
 
-        vesting.claim(sender=recipient)
+        vesting.claim(recipient, 2**256 - 1, sender=recipient)
         expected_amount = amount * (timestamp - start_time) // (end_time - start_time)
 
         assert token.balanceOf(recipient) == expected_amount

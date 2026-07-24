@@ -47,8 +47,6 @@ def deploy_contracts(deployer):
 
     assert factory.STANDARD_TARGET() == standard_target.address
     assert factory.ERC4626_TARGET() == erc4626_target.address
-    assert standard_target.implementation_kind() == 1
-    assert erc4626_target.implementation_kind() == 2
     return standard_target, erc4626_target, factory
 
 

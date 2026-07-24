@@ -6,7 +6,7 @@ implements: IERC20
 
 
 interface VestingEscrow:
-    def owner() -> address: view
+    def revoker() -> address: view
 
 
 event Transfer:
@@ -25,14 +25,14 @@ balanceOf: public(HashMap[address, uint256])
 allowance: public(HashMap[address, HashMap[address, uint256]])
 totalSupply: public(uint256)
 watched_escrow: public(address)
-observed_owner: public(address)
+observed_revoker: public(address)
 extra_debit: public(uint256)
 
 
 @external
 def transfer(receiver: address, amount: uint256) -> bool:
     if msg.sender == self.watched_escrow:
-        self.observed_owner = staticcall VestingEscrow(msg.sender).owner()
+        self.observed_revoker = staticcall VestingEscrow(msg.sender).revoker()
 
     debit: uint256 = amount + self.extra_debit
     self.balanceOf[msg.sender] -= debit

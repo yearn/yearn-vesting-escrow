@@ -83,7 +83,7 @@ def main():
 
     boa.env.time_travel(seconds=30 * DAY)
     holder_balance = vault.balanceOf(holder)
-    claimed = escrow.claim_principal(sender=recipient)
+    claimed = escrow.claim_principal(recipient, 2**256 - 1, sender=recipient)
     assert claimed > 0
     assert vault.balanceOf(recipient) == claimed
     assert vault.balanceOf(holder) == holder_balance
@@ -96,7 +96,7 @@ def main():
     assert yield_shares > 0
     assert vault.balanceOf(holder) == holder_balance + yield_shares
 
-    escrow.revoke(sender=holder)
-    escrow.claim_principal(sender=recipient)
+    escrow.revoke(holder, sender=holder)
+    escrow.claim_principal(recipient, 2**256 - 1, sender=recipient)
     assert vault.balanceOf(escrow) == 0
     print(f"sUSDS fork lifecycle passed at Ethereum block {block_identifier}")

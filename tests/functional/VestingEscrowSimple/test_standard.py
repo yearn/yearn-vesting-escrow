@@ -2,6 +2,8 @@ import boa
 
 from tests.helpers import ZERO_ADDRESS, at, deploy
 
+UINT256_MAX = 2**256 - 1
+
 
 def test_claims_standard_tokens(
     chain,
@@ -16,21 +18,21 @@ def test_claims_standard_tokens(
     chain.pending_timestamp = midpoint
     expected = amount * (midpoint - start_time) // (end_time - start_time)
 
-    assert vesting.unclaimed() == expected
+    assert vesting.claimable() == expected
     assert vesting.locked() == amount - expected
-    assert vesting.claim(sender=recipient) == expected
+    assert vesting.claim(recipient, UINT256_MAX, sender=recipient) == expected
     assert token.balanceOf(recipient) == expected
     assert vesting.total_claimed() == expected
 
     chain.pending_timestamp = end_time
-    assert vesting.claim(sender=recipient) == amount - expected
+    assert vesting.claim(recipient, UINT256_MAX, sender=recipient) == amount - expected
     assert token.balanceOf(recipient) == amount
     assert token.balanceOf(vesting) == 0
-    assert vesting.unclaimed() == 0
+    assert vesting.claimable() == 0
     assert vesting.locked() == 0
 
 
-def test_partial_claim_to_recipient_selected_beneficiary(
+def test_partial_claim_to_recipient_selected_receiver(
     chain,
     vesting,
     recipient,
@@ -44,7 +46,7 @@ def test_partial_claim_to_recipient_selected_beneficiary(
 
     assert vesting.claim(cold_storage, partial, sender=recipient) == partial
     assert token.balanceOf(cold_storage) == partial
-    assert vesting.unclaimed() == amount - partial
+    assert vesting.claimable() == amount - partial
 
 
 def test_cliff_blocks_claims(
@@ -57,23 +59,27 @@ def test_cliff_blocks_claims(
 ):
     chain.pending_timestamp = start_time + cliff_duration - 1
 
-    assert vesting.unclaimed() == 0
+    assert vesting.claimable() == 0
     assert vesting.locked() == amount
-    assert vesting.claim(sender=recipient) == 0
+    assert vesting.claim(recipient, UINT256_MAX, sender=recipient) == 0
 
 
-def test_open_claim_for_recipient(
+def test_permissionless_claim_for_recipient(
     chain,
     vesting,
     owner,
     recipient,
+    cold_storage,
     token,
     start_time,
     end_time,
 ):
     chain.pending_timestamp = start_time + (end_time - start_time) // 2
 
-    claimed = vesting.claim(recipient, sender=owner)
+    with boa.reverts():
+        vesting.claim(cold_storage, UINT256_MAX, sender=owner)
+
+    claimed = vesting.claim(recipient, UINT256_MAX, sender=owner)
 
     assert claimed > 0
     assert token.balanceOf(recipient) == claimed
@@ -88,24 +94,24 @@ def test_closed_claim_only_allows_recipient(
     start_time,
     end_time,
 ):
-    vesting.set_open_claim(False, sender=recipient)
+    vesting.set_permissionless_claims(False, sender=recipient)
     chain.pending_timestamp = start_time + (end_time - start_time) // 2
 
-    with boa.reverts(dev="not authorized"):
-        vesting.claim(sender=owner)
+    with boa.reverts():
+        vesting.claim(recipient, UINT256_MAX, sender=owner)
 
-    assert vesting.claim(sender=recipient) > 0
-
-
-def test_only_recipient_changes_open_claim(vesting, owner, recipient):
-    with boa.reverts(dev="not recipient"):
-        vesting.set_open_claim(False, sender=owner)
-
-    vesting.set_open_claim(False, sender=recipient)
-    assert not vesting.open_claim()
+    assert vesting.claim(recipient, UINT256_MAX, sender=recipient) > 0
 
 
-def test_revoke_uses_current_time_and_fixed_owner(
+def test_only_recipient_changes_permissionless_claims(vesting, owner, recipient):
+    with boa.reverts():
+        vesting.set_permissionless_claims(False, sender=owner)
+
+    vesting.set_permissionless_claims(False, sender=recipient)
+    assert not vesting.permissionless_claims()
+
+
+def test_revoke_uses_current_time_and_explicit_receiver(
     chain,
     vesting,
     owner,
@@ -119,19 +125,19 @@ def test_revoke_uses_current_time_and_fixed_owner(
     chain.pending_timestamp = midpoint
     recipient_principal = amount * (midpoint - start_time) // (end_time - start_time)
 
-    vesting.revoke(sender=owner)
+    vesting.revoke(owner, sender=owner)
 
     assert vesting.disabled_at() == midpoint
-    assert vesting.owner() == ZERO_ADDRESS
+    assert vesting.revoker() == ZERO_ADDRESS
     assert token.balanceOf(owner) == amount - recipient_principal
     assert token.balanceOf(vesting) == recipient_principal
 
-    vesting.claim(sender=recipient)
+    vesting.claim(recipient, UINT256_MAX, sender=recipient)
     assert token.balanceOf(recipient) == recipient_principal
     assert token.balanceOf(vesting) == 0
 
 
-def test_revoke_accepts_future_time_and_beneficiary(
+def test_revoke_accepts_custom_receiver(
     chain,
     vesting,
     owner,
@@ -142,32 +148,32 @@ def test_revoke_accepts_future_time_and_beneficiary(
     start_time,
     end_time,
 ):
-    ts = start_time + (end_time - start_time) // 2
-    vested = amount * (ts - start_time) // (end_time - start_time)
+    midpoint = start_time + (end_time - start_time) // 2
+    chain.pending_timestamp = midpoint
+    vested = amount * (midpoint - start_time) // (end_time - start_time)
 
-    vesting.revoke(ts, cold_storage, sender=owner)
+    vesting.revoke(cold_storage, sender=owner)
 
-    assert vesting.disabled_at() == ts
+    assert vesting.disabled_at() == midpoint
     assert token.balanceOf(cold_storage) == amount - vested
     assert token.balanceOf(vesting) == vested
 
-    chain.pending_timestamp = ts
-    vesting.claim(sender=recipient)
+    vesting.claim(recipient, UINT256_MAX, sender=recipient)
     assert token.balanceOf(recipient) == vested
 
 
-def test_only_owner_can_revoke(vesting, recipient):
-    with boa.reverts(dev="not owner"):
-        vesting.revoke(sender=recipient)
+def test_only_revoker_can_revoke(vesting, recipient):
+    with boa.reverts():
+        vesting.revoke(recipient, sender=recipient)
 
 
 def test_cannot_revoke_after_completion(chain, vesting, owner, end_time):
     chain.pending_timestamp = end_time
-    with boa.reverts(dev="no back to the future"):
-        vesting.revoke(sender=owner)
+    with boa.reverts():
+        vesting.revoke(owner, sender=owner)
 
 
-def test_revoke_clears_owner_before_transfer(
+def test_revoke_clears_revoker_before_transfer(
     chain,
     standard_target,
     erc4626_target,
@@ -201,101 +207,22 @@ def test_revoke_clears_owner_before_transfer(
     token.configure(escrow, 0, sender=owner)
     chain.pending_timestamp = start_time + duration // 2
 
-    escrow.revoke(sender=owner)
+    escrow.revoke(owner, sender=owner)
 
-    assert token.observed_owner() == ZERO_ADDRESS
-
-
-def test_disown_is_final(vesting, owner):
-    vesting.disown(sender=owner)
-    assert vesting.owner() == ZERO_ADDRESS
-
-    with boa.reverts(dev="not owner"):
-        vesting.disown(sender=owner)
-    with boa.reverts(dev="not owner"):
-        vesting.revoke(sender=owner)
+    assert token.observed_revoker() == ZERO_ADDRESS
 
 
-def test_collect_dust_sends_unrelated_token_to_recipient(
-    vesting,
-    owner,
-    recipient,
-    another_token,
-):
-    amount = 123
-    another_token.mint(vesting, amount, sender=owner)
-
-    vesting.collect_dust(another_token, recipient, sender=owner)
-
-    assert another_token.balanceOf(recipient) == amount
-    assert another_token.balanceOf(vesting) == 0
-
-
-def test_collect_dust_accepts_recipient_selected_beneficiary(
-    vesting,
-    owner,
-    recipient,
-    cold_storage,
-    another_token,
-):
-    amount = 123
-    another_token.mint(vesting, amount, sender=owner)
-
-    vesting.collect_dust(another_token, cold_storage, sender=recipient)
-
-    assert another_token.balanceOf(cold_storage) == amount
-
-
-def test_collect_dust_preserves_vesting_reserve(vesting, token, owner, recipient, amount):
-    donation = amount // 4
-    token.mint(owner, donation, sender=owner)
-    token.transfer(vesting, donation, sender=owner)
-
-    vesting.collect_dust(token, sender=recipient)
-
-    assert token.balanceOf(recipient) == donation
-    assert token.balanceOf(vesting) == amount
-
-
-def test_collect_dust_cannot_make_escrow_insolvent(
-    standard_target,
-    erc4626_target,
-    owner,
-    recipient,
-    amount,
-    duration,
-    start_time,
-):
-    token = deploy("test/AdversarialToken", sender=owner)
-    factory = deploy(
-        "VestingEscrowFactory",
-        standard_target,
-        erc4626_target,
-        sender=owner,
-    )
-    token.mint(owner, amount, sender=owner)
-    token.approve(factory, amount, sender=owner)
-    escrow_address = factory.deploy_vesting_contract(
-        token,
-        recipient,
-        amount,
-        duration,
-        start_time,
-        sender=owner,
-    )
-    escrow = at("VestingEscrowSimple", escrow_address)
-    excess = amount // 10
-    token.mint(escrow, excess, sender=owner)
-    token.configure(escrow, 1, sender=owner)
+def test_renounce_revocation_is_final(vesting, owner):
+    vesting.renounce_revocation(sender=owner)
+    assert vesting.revoker() == ZERO_ADDRESS
 
     with boa.reverts():
-        escrow.collect_dust(token, sender=recipient)
+        vesting.renounce_revocation(sender=owner)
+    with boa.reverts():
+        vesting.revoke(owner, sender=owner)
 
-    assert token.balanceOf(escrow) == amount + excess
-    assert token.balanceOf(recipient) == 0
 
-
-def test_extra_standard_tokens_remain_dust(
+def test_extra_standard_tokens_remain_unsupported(
     chain,
     vesting,
     owner,
@@ -309,14 +236,10 @@ def test_extra_standard_tokens_remain_dust(
     token.transfer(vesting, donation, sender=owner)
     chain.pending_timestamp = end_time
 
-    vesting.claim(sender=recipient)
+    vesting.claim(recipient, UINT256_MAX, sender=recipient)
 
     assert token.balanceOf(recipient) == amount
     assert token.balanceOf(vesting) == donation
-
-    vesting.collect_dust(token, sender=recipient)
-    assert token.balanceOf(recipient) == amount + donation
-    assert token.balanceOf(vesting) == 0
 
 
 def test_large_direct_donation_keeps_partial_claims_live(
@@ -359,10 +282,8 @@ def test_large_direct_donation_keeps_partial_claims_live(
 
     chain.pending_timestamp = start + 1
     vested = maximum // duration
-    assert escrow.unclaimed() == vested
+    assert escrow.claimable() == vested
     assert escrow.locked() == maximum - vested
-    assert escrow.claim(sender=recipient) == vested
+    assert escrow.claim(recipient, UINT256_MAX, sender=recipient) == vested
     assert token.balanceOf(recipient) == vested
-
-    escrow.collect_dust(token, sender=recipient)
-    assert token.balanceOf(recipient) == vested + donation
+    assert token.balanceOf(escrow) == maximum - vested + donation
